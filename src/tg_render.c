@@ -9,7 +9,7 @@
 
 #include "main.h"
 
-#define STATUS_LINES        2       // Lines reserved below frame for text
+#define STATUS_LINES        3       // Lines reserved below frame for text
 
 #define FRAME_PERIOD_US     30000   // 33 FPS
 

@@ -48,6 +48,7 @@ typedef struct tg_state
     uint32_t    step;
     float       target_x;
     float       target_y;
+    uint32_t    episode;
 } tg_state;
 
 typedef struct tg_ctx

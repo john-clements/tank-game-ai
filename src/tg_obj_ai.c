@@ -144,7 +144,10 @@ void step_tg_ai(tg_ctx* ctx)
 
     ctx->state.step++;
     if (ctx->state.step >= EPISODE_LENGTH)
+    {
         ctx->state.step = 0;
+        ctx->state.episode++;
+    }
 
     if (ctx->state.step == 0)
         ddpg_observe(ctx->state.ddpg, action, reward, state, 1);
@@ -195,10 +198,11 @@ void draw_tg_ai_status(tg_ctx* ctx)
 
     tg_text_reset();
 
-    tg_draw_text(0, "Position : X=%-3f  Y=%-3f", ctx->obj_list[SQUARE_IDX].x, ctx->obj_list[SQUARE_IDX].y);
+    tg_draw_text(0, "Episode  : %d -> Fx=%.1f  Fy=%.1f", ctx->state.episode, ctx->obj_list[SQUARE_IDX].f_x, ctx->obj_list[SQUARE_IDX].f_y);
+    tg_draw_text(1, "Position : X=%-3f  Y=%-3f", ctx->obj_list[SQUARE_IDX].x, ctx->obj_list[SQUARE_IDX].y);
 
-    tg_draw_text(1, "Reward   : [");
+    tg_draw_text(2, "Reward   : [");
     for (int i = 0; i < REWARD_SIZE - 1; i++)
-        tg_draw_text(1, "%.3f, ", reward[i]);
-    tg_draw_text(1, "%.3f]", reward[REWARD_SIZE - 1]);
+        tg_draw_text(2, "%.3f, ", reward[i]);
+    tg_draw_text(2, "%.3f]", reward[REWARD_SIZE - 1]);
 }
