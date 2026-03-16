@@ -63,6 +63,9 @@ void tg_start_engine(tg_ctx* ctx);
 
 void get_screen_limits(int* x, int* y);
 
+void tg_text_reset();
+void tg_draw_text(int line, const char *fmt, ...);
+
 
 void tg_obj_pos_set_middle(tg_obj* obj);
 void tg_obj_init(tg_obj* obj, uint16_t color, int width, int height, float mass);
@@ -74,5 +77,6 @@ void step_tg_ai(tg_ctx* ctx);
 void free_tg_ai(tg_ctx* ctx);
 
 void start_ai_obj_test();
+void draw_tg_ai_status(tg_ctx* ctx);
 
 #endif

@@ -7,7 +7,7 @@
 #include "main.h"
 
 
-uint16_t g_obj_id = 2;
+uint16_t g_obj_id = 3;
 void tg_obj_init(tg_obj* obj, uint16_t color, int width, int height, float mass)
 {
     obj->id     = g_obj_id++;
@@ -53,9 +53,9 @@ void tg_obj_process(tg_obj* obj)
     }
 
     // Vertical
-    if (obj->y + obj->height >= max_y - 1)
+    if (obj->y + obj->height >= max_y)
     {
-        obj->y = max_y - 1 - obj->height;
+        obj->y = max_y - obj->height;
         obj->v_y = -obj->v_y;
     } else if (obj->y <= 1)
     {

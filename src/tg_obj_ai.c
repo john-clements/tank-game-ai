@@ -69,15 +69,22 @@ void process_action(float action, float* param)
         *param = -MAX_F;
 }
 
+void get_reward(tg_ctx* ctx, float* reward)
+{
+    tg_obj* obj = &ctx->obj_list[SQUARE_IDX];
+
+    reward[0] = -fabs(obj->x - ctx->state.target_x) / ctx->state.target_x;
+    reward[1] = -fabs(obj->y - ctx->state.target_y) / ctx->state.target_y;
+}
+
 void state_step(tg_ctx* ctx, float* reward, float* action)
 {
-    tg_obj* obj = &ctx->obj_list[0];
+    tg_obj* obj = &ctx->obj_list[SQUARE_IDX];
 
     process_action(action[0], &obj->f_x);
     process_action(action[1], &obj->f_y);
 
-    reward[0] = -fabs(obj->x - ctx->state.target_x) / ctx->state.target_x;
-    reward[1] = -fabs(obj->y - ctx->state.target_y) / ctx->state.target_y;
+    get_reward(ctx, reward);
 
     tg_obj_process(obj);
 }
@@ -178,4 +185,20 @@ void start_ai_obj_test()
     ctx.obj_list_cnt    = OBJ_CNT;
 
     tg_start_engine(&ctx);
+}
+
+void draw_tg_ai_status(tg_ctx* ctx)
+{
+    float reward[REWARD_SIZE];
+
+    get_reward(ctx, reward);
+
+    tg_text_reset();
+
+    tg_draw_text(0, "Position : X=%-3f  Y=%-3f", ctx->obj_list[SQUARE_IDX].x, ctx->obj_list[SQUARE_IDX].y);
+
+    tg_draw_text(1, "Reward   : [");
+    for (int i = 0; i < REWARD_SIZE - 1; i++)
+        tg_draw_text(1, "%.3f, ", reward[i]);
+    tg_draw_text(1, "%.3f]", reward[REWARD_SIZE - 1]);
 }
