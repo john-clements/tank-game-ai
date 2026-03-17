@@ -35,6 +35,13 @@ typedef struct tg_obj
     int manual_process;
 } tg_obj;
 
+typedef struct tg_ai_ctx
+{
+    DDPG*       ddpg;
+    uint32_t    step;
+    uint32_t    episode;
+} tg_ai_ctx;
+
 typedef struct tg_state
 {
     // Configurable based on game design
@@ -43,12 +50,12 @@ typedef struct tg_state
     float f_x;
     float f_y;
 
+    // Target destination
+    float target_x;
+    float target_y;
+
     // Obj AI processing
-    DDPG*       ddpg;
-    uint32_t    step;
-    float       target_x;
-    float       target_y;
-    uint32_t    episode;
+    tg_ai_ctx   ai_ctx;
 } tg_state;
 
 typedef struct tg_ctx

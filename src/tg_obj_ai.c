@@ -25,10 +25,12 @@ void init_tg_ai(tg_ctx* ctx)
 {
     int layers[LAYER_SIZE]  = {128, 64};
 
+    tg_ai_ctx* ai_ctx = &ctx->state.ai_ctx;
+
     DDPG* ddpg = ddpg_create(STATE_SIZE, ACTION_SIZE, NULL, LAYER_SIZE, layers, LAYER_SIZE, layers, REPLAY_BUF_SIZE, BATCH_SIZE, REWARD_SIZE);
 
-    ctx->state.ddpg = ddpg;
-    ctx->state.step = 0;
+    ai_ctx->ddpg = ddpg;
+    ai_ctx->step = 0;
 
     int max_y, max_x;
     get_screen_limits(&max_x, &max_y);
@@ -39,7 +41,7 @@ void init_tg_ai(tg_ctx* ctx)
 
 void free_tg_ai(tg_ctx* ctx)
 {
-    ddpg_destroy(ctx->state.ddpg);
+    ddpg_destroy(ctx->state.ai_ctx.ddpg);
 }
 
 #define ACTION_UP   0
@@ -132,9 +134,11 @@ void step_tg_ai(tg_ctx* ctx)
     float reward[REWARD_SIZE];
     float state[STATE_SIZE];
 
-    if (ctx->state.step == 0)
+    tg_ai_ctx* ai_ctx = &ctx->state.ai_ctx;
+
+    if (ai_ctx->step == 0)
     {
-        ddpg_new_episode(ctx->state.ddpg);
+        ddpg_new_episode(ai_ctx->ddpg);
 
         ctx->obj_list[SQUARE_IDX].f_x = random_target();
         ctx->obj_list[SQUARE_IDX].f_y = random_target();
@@ -142,27 +146,27 @@ void step_tg_ai(tg_ctx* ctx)
 
     get_state(ctx, state);
 
-    float* action = ddpg_action(ctx->state.ddpg, state);
+    float* action = ddpg_action(ai_ctx->ddpg, state);
 
     state_step(ctx, reward, action);
 
     get_state(ctx, state);
 
-    ctx->state.step++;
-    if (ctx->state.step >= EPISODE_LENGTH)
+    ai_ctx->step++;
+    if (ai_ctx->step >= EPISODE_LENGTH)
     {
-        ctx->state.step = 0;
-        ctx->state.episode++;
+        ai_ctx->step = 0;
+        ai_ctx->episode++;
     }
 
-    if (ctx->state.step == 0)
-        ddpg_observe(ctx->state.ddpg, action, reward, state, 1);
+    if (ai_ctx->step == 0)
+        ddpg_observe(ai_ctx->ddpg, action, reward, state, 1);
     else
-        ddpg_observe(ctx->state.ddpg, action, reward, state, 0);
+        ddpg_observe(ai_ctx->ddpg, action, reward, state, 0);
 
-    ddpg_train(ctx->state.ddpg, 0.99);
+    ddpg_train(ai_ctx->ddpg, 0.99);
 
-    ddpg_soft_update_target_networks(ctx->state.ddpg, .005);
+    ddpg_soft_update_target_networks(ai_ctx->ddpg, .005);
 }
 
 #define OBJ_CNT 1
@@ -198,13 +202,15 @@ void start_ai_obj_test()
 
 void draw_tg_ai_status(tg_ctx* ctx)
 {
+    tg_ai_ctx* ai_ctx = &ctx->state.ai_ctx;
+
     float reward[REWARD_SIZE];
 
     get_reward(ctx, reward);
 
     tg_text_reset();
 
-    tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", ctx->state.episode, ctx->obj_list[SQUARE_IDX].f_x, ctx->obj_list[SQUARE_IDX].f_y);
+    tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", ai_ctx->episode, ctx->obj_list[SQUARE_IDX].f_x, ctx->obj_list[SQUARE_IDX].f_y);
     tg_draw_text(1, "Position : X=%-3f  Y=%-3f", ctx->obj_list[SQUARE_IDX].x, ctx->obj_list[SQUARE_IDX].y);
 
     tg_draw_text(2, "Reward   : [");
