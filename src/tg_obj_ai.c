@@ -8,6 +8,8 @@
 
 #include "main.h"
 
+#define ACTION_MAGNITUDE_EN
+
 #define EPISODE_LENGTH  200
 #define LAYER_SIZE      2
 #define REPLAY_BUF_SIZE 20000
@@ -15,7 +17,7 @@
 #define REWARD_SIZE     2
 #define STATE_SIZE      6
 #define ACTION_SIZE     2
-#define STEP_CONTROL    0.1f
+#define STEP_CONTROL    0.02f
 
 #define SQUARE_IDX      0
 
@@ -31,8 +33,8 @@ void init_tg_ai(tg_ctx* ctx)
     int max_y, max_x;
     get_screen_limits(&max_x, &max_y);
 
-    ctx->state.target_x = ((float)max_x - (float)ctx->obj_list[0].width) / 2.0f;
-    ctx->state.target_y = ((float)max_y - (float)ctx->obj_list[0].height) / 2.0f;
+    ctx->state.target_x = ((float)max_x - (float)ctx->obj_list[SQUARE_IDX].width) / 2.0f;
+    ctx->state.target_y = ((float)max_y - (float)ctx->obj_list[SQUARE_IDX].height) / 2.0f;
 }
 
 void free_tg_ai(tg_ctx* ctx)
@@ -56,6 +58,9 @@ int get_action_index(float action)
 
 void process_action(float action, float* param)
 {
+#ifdef ACTION_MAGNITUDE_EN
+    *param = action;
+#else
     float action_scale = get_action_index(action);
 
     if (action_scale == ACTION_UP)
@@ -67,6 +72,7 @@ void process_action(float action, float* param)
         *param = MAX_F;
     if (*param < -MAX_F)
         *param = -MAX_F;
+#endif
 }
 
 void get_reward(tg_ctx* ctx, float* reward)
@@ -198,7 +204,7 @@ void draw_tg_ai_status(tg_ctx* ctx)
 
     tg_text_reset();
 
-    tg_draw_text(0, "Episode  : %d -> Fx=%.1f  Fy=%.1f", ctx->state.episode, ctx->obj_list[SQUARE_IDX].f_x, ctx->obj_list[SQUARE_IDX].f_y);
+    tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", ctx->state.episode, ctx->obj_list[SQUARE_IDX].f_x, ctx->obj_list[SQUARE_IDX].f_y);
     tg_draw_text(1, "Position : X=%-3f  Y=%-3f", ctx->obj_list[SQUARE_IDX].x, ctx->obj_list[SQUARE_IDX].y);
 
     tg_draw_text(2, "Reward   : [");
