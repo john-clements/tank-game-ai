@@ -24,4 +24,6 @@ typedef struct tank_ctx
 
 void tank_obj_init(tg_ctx* ctx, tank_ctx* tank, uint16_t color);
 
+void tank_shoot(tank_ctx* tank);
+
 #endif

@@ -92,7 +92,7 @@ void tg_text_set_col(int line, int col);
 
 void tg_obj_pos_set_middle(tg_obj* obj);
 void tg_obj_init(tg_obj* obj, uint16_t color, int width, int height, float mass);
-void tg_obj_process(tg_obj* obj);
+int tg_obj_process(tg_obj* obj);
 
 // AI function prototypes
 void init_tg_ai(tg_ctx* ctx);

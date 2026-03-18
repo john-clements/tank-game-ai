@@ -38,10 +38,12 @@ void tg_obj_pos_set_middle(tg_obj* obj)
     obj->y = ((float)max_y - (float)obj->height) / 2.0f;
 }
 
-void tg_obj_process(tg_obj* obj)
+int tg_obj_process(tg_obj* obj)
 {
+    int collision = 0;
+
     if (!obj->on)
-        return;
+        return 0;
 
     obj->v_x = obj->v_x + obj->f_x / obj->mass;
     obj->v_y = obj->v_y + obj->f_y / obj->mass;
@@ -55,12 +57,22 @@ void tg_obj_process(tg_obj* obj)
     if (obj->x + obj->width >= obj->max_x_boundary - 1)
     {
         obj->x = obj->max_x_boundary - 1 - obj->width;
-        obj->v_x = -obj->v_x;
+        if (obj->elastic)
+            obj->v_x = -obj->v_x;
+        else
+            obj->v_x = 0;
+
+        collision = 1;
     }
     else if (obj->x <= obj->min_x_boundary)
     {
         obj->x = obj->min_x_boundary;
-        obj->v_x = -obj->v_x;
+        if (obj->elastic)
+            obj->v_x = -obj->v_x;
+        else
+            obj->v_x = 0;
+
+        collision = 1;
     }
 
     // Vertical
@@ -71,13 +83,18 @@ void tg_obj_process(tg_obj* obj)
             obj->v_y = -obj->v_y;
         else
             obj->v_y = 0;
-    } else if (obj->y <= obj->min_y_boundary)
+
+        collision = 1;
+    }
+    else if (obj->y <= obj->min_y_boundary)
     {
         obj->y = obj->min_y_boundary;
         if (obj->elastic)
             obj->v_y = -obj->v_y;
         else
             obj->v_y = 0;
+
+        collision = 1;
     }
 
     if (obj->v_y > MAX_V)
@@ -89,6 +106,8 @@ void tg_obj_process(tg_obj* obj)
         obj->v_x = MAX_V;
     else if (obj->v_x < -MAX_V)
         obj->v_x = -MAX_V;
+
+    return collision;
 }
 
 void tg_ctx_add_obj(tg_ctx* ctx, tg_obj* obj)

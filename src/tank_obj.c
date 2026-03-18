@@ -14,6 +14,8 @@
 #define MISSLE_WIDTH    1
 #define MISSLE_HEIGHT   2
 
+#define MISSLE_VELOCITY 3
+
 uint16_t g_tank_obj_id = 0;
 
 void tank_obj_init(tg_ctx* ctx, tank_ctx* tank, uint16_t color)
@@ -27,5 +29,18 @@ void tank_obj_init(tg_ctx* ctx, tank_ctx* tank, uint16_t color)
 
     tg_ctx_add_obj(ctx, &tank->tg_body);
     tg_ctx_add_obj(ctx, &tank->tg_missle);
+}
+
+void tank_shoot(tank_ctx* tank)
+{
+    tank->tg_missle.x = tank->tg_body.x + TANK_WIDTH/2;
+    tank->tg_missle.y = tank->tg_body.y;
+
+    if (tank->dir == TANK_DIR_UP)
+        tank->tg_missle.v_y = -MISSLE_VELOCITY;
+    else if (tank->dir == TANK_DIR_DOWN)
+        tank->tg_missle.v_y = MISSLE_VELOCITY;
+
+    tank->tg_missle.on = 1;
 }
 

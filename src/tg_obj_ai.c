@@ -37,13 +37,13 @@ void init_tg_ai(tg_ctx* ctx)
 
         ai_ctx->ddpg = ddpg;
         ai_ctx->step = 0;
-
-        int max_y, max_x;
-        get_screen_limits(&max_x, &max_y);
-
-        ctx->state[i].target_x = ((float)max_x - (float)g_tank_lower.tg_body.width) / 2.0f;
-        ctx->state[i].target_y = ((float)max_y - (float)g_tank_lower.tg_body.height) / 2.0f;
     }
+
+    ctx->state[TANK_LOWER_ID].target_x = ((float)g_tank_lower.tg_body.max_x_boundary - (float)g_tank_lower.tg_body.width) / 2.0f;
+    ctx->state[TANK_LOWER_ID].target_y = g_tank_lower.tg_body.y;
+
+    ctx->state[TANK_UPPER_ID].target_x = ((float)g_tank_upper.tg_body.max_x_boundary - (float)g_tank_upper.tg_body.width) / 2.0f;
+    ctx->state[TANK_UPPER_ID].target_y = g_tank_upper.tg_body.y;
 }
 
 void free_tg_ai(tg_ctx* ctx)
@@ -171,10 +171,30 @@ void step_tg_ai_tank(tg_state* state_ctx, tg_obj* tank)
     ddpg_soft_update_target_networks(ai_ctx->ddpg, .005);
 }
 
+void proccess_tank_missle(tank_ctx* tank)
+{
+    if (!tank->tg_missle.on)
+    {
+        if (deepc_random_int(0, 10) == 5)
+            tank_shoot(tank);
+        else
+            return;
+    }
+
+    if (tg_obj_process(&tank->tg_missle))
+    {
+        // Collision
+        tank->tg_missle.on = 0;
+    }
+}
+
 void step_tg_ai(tg_ctx* ctx)
 {
     step_tg_ai_tank(&ctx->state[TANK_LOWER_ID], &g_tank_lower.tg_body);
     step_tg_ai_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper.tg_body);
+
+    proccess_tank_missle(&g_tank_lower);
+    proccess_tank_missle(&g_tank_upper);
 }
 
 void tank_init_upper(tg_ctx* ctx, tank_ctx* tank)
@@ -214,6 +234,9 @@ void start_ai_obj_test()
 
     g_tank_lower.tg_body.manual_process = 1;
     g_tank_upper.tg_body.manual_process = 1;
+
+    g_tank_lower.tg_missle.manual_process = 1;
+    g_tank_upper.tg_missle.manual_process = 1;
 
     tg_start_engine(&ctx);
 }
