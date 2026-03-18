@@ -22,6 +22,9 @@
 #define TANK_LOWER_ID   0
 #define TANK_UPPER_ID   1
 
+tank_ctx g_tank_lower = {0};
+tank_ctx g_tank_upper = {0};
+
 void init_tg_ai(tg_ctx* ctx)
 {
     int layers[LAYER_SIZE]  = {128, 64};
@@ -38,8 +41,8 @@ void init_tg_ai(tg_ctx* ctx)
         int max_y, max_x;
         get_screen_limits(&max_x, &max_y);
 
-        ctx->state[i].target_x = ((float)max_x - (float)ctx->obj_list[TANK_LOWER_ID]->width) / 2.0f;
-        ctx->state[i].target_y = ((float)max_y - (float)ctx->obj_list[TANK_LOWER_ID]->height) / 2.0f;
+        ctx->state[i].target_x = ((float)max_x - (float)g_tank_lower.tg_body.width) / 2.0f;
+        ctx->state[i].target_y = ((float)max_y - (float)g_tank_lower.tg_body.height) / 2.0f;
     }
 }
 
@@ -170,8 +173,8 @@ void step_tg_ai_tank(tg_state* state_ctx, tg_obj* tank)
 
 void step_tg_ai(tg_ctx* ctx)
 {
-    step_tg_ai_tank(&ctx->state[TANK_LOWER_ID], ctx->obj_list[TANK_LOWER_ID]);
-    step_tg_ai_tank(&ctx->state[TANK_UPPER_ID], ctx->obj_list[2]);
+    step_tg_ai_tank(&ctx->state[TANK_LOWER_ID], &g_tank_lower.tg_body);
+    step_tg_ai_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper.tg_body);
 }
 
 void tank_init_upper(tg_ctx* ctx, tank_ctx* tank)
@@ -206,45 +209,41 @@ void start_ai_obj_test()
 
     tg_init();
 
-    tank_ctx tank_lower = {0};
-    tank_init_lower(&ctx, &tank_lower);
+    tank_init_lower(&ctx, &g_tank_lower);
+    tank_init_upper(&ctx, &g_tank_upper);
 
-    tank_ctx tank_upper = {0};
-    tank_init_upper(&ctx, &tank_upper);
-
-    tank_lower.tg_body.manual_process = 1;
-    tank_upper.tg_body.manual_process = 1;
+    g_tank_lower.tg_body.manual_process = 1;
+    g_tank_upper.tg_body.manual_process = 1;
 
     tg_start_engine(&ctx);
+}
+
+void draw_tg_ai_status_tank(tg_state* state_ctx, tank_ctx* tank)
+{
+    float reward[REWARD_SIZE];
+
+    get_reward(state_ctx, &tank->tg_body, reward);
+
+    tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", state_ctx->ai_ctx.episode, tank->tg_body.f_x, tank->tg_body.f_y);
+    tg_draw_text(1, "Position : X=%-.3f  Y=%-.3f", tank->tg_body.x, tank->tg_body.y);
+
+    tg_draw_text(2, "Reward   : [");
+    for (int i = 0; i < REWARD_SIZE - 1; i++)
+        tg_draw_text(2, "%-.3f, ", reward[i]);
+    tg_draw_text(2, "%-.3f]", reward[REWARD_SIZE - 1]);
 }
 
 void draw_tg_ai_status(tg_ctx* ctx)
 {
     tg_ai_ctx* ai_ctx = &ctx->state[0].ai_ctx;
 
-    float reward[MAX_STATE_CNT][REWARD_SIZE];
-
-    get_reward(&ctx->state[0], ctx->obj_list[0], reward[0]);
-    get_reward(&ctx->state[1], ctx->obj_list[2], reward[1]);
-
     tg_text_reset();
 
-    tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", ai_ctx->episode, ctx->obj_list[0]->f_x, ctx->obj_list[0]->f_y);
-    tg_draw_text(1, "Position : X=%-.3f  Y=%-.3f", ctx->obj_list[0]->x, ctx->obj_list[0]->y);
-
-    tg_draw_text(2, "Reward   : [");
-    for (int i = 0; i < REWARD_SIZE - 1; i++)
-        tg_draw_text(2, "%-.3f, ", reward[0][i]);
-    tg_draw_text(2, "%-.3f]", reward[0][REWARD_SIZE - 1]);
+    draw_tg_ai_status_tank(&ctx->state[TANK_LOWER_ID], &g_tank_lower);
 
     tg_text_set_col(0, 40);
     tg_text_set_col(1, 40);
     tg_text_set_col(2, 40);
-    tg_draw_text(0, "Fx=%-.2f  Fy=%-.2f", ctx->obj_list[2]->f_x, ctx->obj_list[2]->f_y);
-    tg_draw_text(1, "Position : X=%-.3f  Y=%-.3f", ctx->obj_list[2]->x, ctx->obj_list[2]->y);
 
-    tg_draw_text(2, "Reward   : [");
-    for (int i = 0; i < REWARD_SIZE - 1; i++)
-        tg_draw_text(2, "%-.3f, ", reward[1][i]);
-    tg_draw_text(2, "%-.3f]", reward[1][REWARD_SIZE - 1]);
+    draw_tg_ai_status_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper);
 }
