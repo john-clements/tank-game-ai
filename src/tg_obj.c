@@ -30,6 +30,9 @@ void tg_obj_pos_set_middle(tg_obj* obj)
 
 void tg_obj_process(tg_obj* obj)
 {
+    if (!obj->on)
+        return;
+
     obj->v_x = obj->v_x + obj->f_x / obj->mass;
     obj->v_y = obj->v_y + obj->f_y / obj->mass;
 

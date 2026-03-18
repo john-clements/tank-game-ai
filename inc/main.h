@@ -33,6 +33,9 @@ typedef struct tg_obj
 
     // Handling
     int manual_process;
+
+    // Currently active
+    int on;
 } tg_obj;
 
 typedef struct tg_ai_ctx

@@ -180,17 +180,10 @@ void start_ai_obj_test()
 
     memset((void*)obj, 0, sizeof(tg_obj)*OBJ_CNT);
 
-    obj[SQUARE_IDX].id = 2;
-    obj[SQUARE_IDX].color = COLOR_GREEN;
-
-    obj[SQUARE_IDX].width = 4;
-    obj[SQUARE_IDX].height = 2;
-
-    obj[SQUARE_IDX].mass = 1;
+    tg_obj_init(&obj[SQUARE_IDX], COLOR_GREEN, 4, 2, 1);
 
     obj[SQUARE_IDX].manual_process = 1;
-
-    tg_obj_init(&obj[SQUARE_IDX], COLOR_GREEN, 4, 2, 1);
+    obj[SQUARE_IDX].on = 1;
 
     tg_obj_pos_set_middle(&obj[SQUARE_IDX]);
 
