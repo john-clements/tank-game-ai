@@ -90,3 +90,14 @@ void tg_obj_process(tg_obj* obj)
     else if (obj->v_x < -MAX_V)
         obj->v_x = -MAX_V;
 }
+
+void tg_ctx_add_obj(tg_ctx* ctx, tg_obj* obj)
+{
+    if (ctx->obj_list_cnt >= MAX_OBJ_CNT)
+    {
+        // Return error here
+        return;
+    }
+
+    ctx->obj_list[ctx->obj_list_cnt++] = obj;
+}

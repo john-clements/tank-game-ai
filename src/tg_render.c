@@ -109,7 +109,7 @@ void tg_start_engine(tg_ctx* ctx)
     init_pair(2, COLOR_CYAN,  COLOR_BLACK);   // Status text
 
     for (int i = 0; i < ctx->obj_list_cnt; i++)
-        init_pair(ctx->obj_list[i].id, ctx->obj_list[i].color, ctx->obj_list[i].color);
+        init_pair(ctx->obj_list[i]->id, ctx->obj_list[i]->color, ctx->obj_list[i]->color);
 
     init_tg_ai(ctx);
 
@@ -122,8 +122,8 @@ void tg_start_engine(tg_ctx* ctx)
  
         for (int i = 0; i < ctx->obj_list_cnt; i++)
         {
-            if (ctx->obj_list[i].manual_process == 0)
-                tg_obj_process(&ctx->obj_list[i]);
+            if (ctx->obj_list[i]->manual_process == 0)
+                tg_obj_process(ctx->obj_list[i]);
         }
 
         step_tg_ai(ctx);
@@ -155,7 +155,7 @@ void tg_start_engine(tg_ctx* ctx)
  
         // Draw objects
         for (int i = 0; i < ctx->obj_list_cnt; i++)
-            render_obj(&ctx->obj_list[i]);
+            render_obj(ctx->obj_list[i]);
 
         // Draw status text
         attron(COLOR_PAIR(2));

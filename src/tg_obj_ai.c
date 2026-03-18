@@ -35,8 +35,8 @@ void init_tg_ai(tg_ctx* ctx)
     int max_y, max_x;
     get_screen_limits(&max_x, &max_y);
 
-    ctx->state.target_x = ((float)max_x - (float)ctx->obj_list[SQUARE_IDX].width) / 2.0f;
-    ctx->state.target_y = ((float)max_y - (float)ctx->obj_list[SQUARE_IDX].height) / 2.0f;
+    ctx->state.target_x = ((float)max_x - (float)ctx->obj_list[SQUARE_IDX]->width) / 2.0f;
+    ctx->state.target_y = ((float)max_y - (float)ctx->obj_list[SQUARE_IDX]->height) / 2.0f;
 }
 
 void free_tg_ai(tg_ctx* ctx)
@@ -79,7 +79,7 @@ void process_action(float action, float* param)
 
 void get_reward(tg_ctx* ctx, float* reward)
 {
-    tg_obj* obj = &ctx->obj_list[SQUARE_IDX];
+    tg_obj* obj = ctx->obj_list[SQUARE_IDX];
 
     reward[0] = -fabs(obj->x - ctx->state.target_x) / ctx->state.target_x;
     reward[1] = -fabs(obj->y - ctx->state.target_y) / ctx->state.target_y;
@@ -87,7 +87,7 @@ void get_reward(tg_ctx* ctx, float* reward)
 
 void state_step(tg_ctx* ctx, float* reward, float* action)
 {
-    tg_obj* obj = &ctx->obj_list[SQUARE_IDX];
+    tg_obj* obj = ctx->obj_list[SQUARE_IDX];
 
     process_action(action[0], &obj->f_x);
     process_action(action[1], &obj->f_y);
@@ -119,7 +119,7 @@ float feature_normalize(float val, float min, float max)
 // 5 -> y force
 void get_state(tg_ctx* ctx, float* state)
 {
-    tg_obj* obj = &ctx->obj_list[SQUARE_IDX];
+    tg_obj* obj = ctx->obj_list[SQUARE_IDX];
 
     state[0] = feature_normalize(obj->x, 0, ctx->state.target_x*2);
     state[1] = feature_normalize(obj->y, 0, ctx->state.target_y*2);
@@ -140,8 +140,8 @@ void step_tg_ai(tg_ctx* ctx)
     {
         ddpg_new_episode(ai_ctx->ddpg);
 
-        ctx->obj_list[SQUARE_IDX].f_x = random_target();
-        ctx->obj_list[SQUARE_IDX].f_y = random_target();
+        ctx->obj_list[SQUARE_IDX]->f_x = random_target();
+        ctx->obj_list[SQUARE_IDX]->f_y = random_target();
     }
 
     get_state(ctx, state);
@@ -169,27 +169,23 @@ void step_tg_ai(tg_ctx* ctx)
     ddpg_soft_update_target_networks(ai_ctx->ddpg, .005);
 }
 
-#define OBJ_CNT 1
 void start_ai_obj_test()
 {
     tg_ctx ctx = {0};
 
-    tg_obj obj[OBJ_CNT] = {0};
+    tg_obj obj = {0};
 
     tg_init();
 
-    memset((void*)obj, 0, sizeof(tg_obj)*OBJ_CNT);
+    tg_obj_init(&obj, COLOR_GREEN, 4, 2, 1);
 
-    tg_obj_init(&obj[SQUARE_IDX], COLOR_GREEN, 4, 2, 1);
+    obj.manual_process  = 1;
+    obj.on              = 1;
+    obj.elastic         = 1;
 
-    obj[SQUARE_IDX].manual_process  = 1;
-    obj[SQUARE_IDX].on              = 1;
-    obj[SQUARE_IDX].elastic         = 1;
+    tg_obj_pos_set_middle(&obj);
 
-    tg_obj_pos_set_middle(&obj[SQUARE_IDX]);
-
-    ctx.obj_list        = obj;
-    ctx.obj_list_cnt    = OBJ_CNT;
+    tg_ctx_add_obj(&ctx, &obj);
 
     tg_start_engine(&ctx);
 }
@@ -204,8 +200,8 @@ void draw_tg_ai_status(tg_ctx* ctx)
 
     tg_text_reset();
 
-    tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", ai_ctx->episode, ctx->obj_list[SQUARE_IDX].f_x, ctx->obj_list[SQUARE_IDX].f_y);
-    tg_draw_text(1, "Position : X=%-3f  Y=%-3f", ctx->obj_list[SQUARE_IDX].x, ctx->obj_list[SQUARE_IDX].y);
+    tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", ai_ctx->episode, ctx->obj_list[SQUARE_IDX]->f_x, ctx->obj_list[SQUARE_IDX]->f_y);
+    tg_draw_text(1, "Position : X=%-3f  Y=%-3f", ctx->obj_list[SQUARE_IDX]->x, ctx->obj_list[SQUARE_IDX]->y);
 
     tg_draw_text(2, "Reward   : [");
     for (int i = 0; i < REWARD_SIZE - 1; i++)

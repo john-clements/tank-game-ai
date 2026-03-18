@@ -68,9 +68,10 @@ typedef struct tg_state
     tg_ai_ctx   ai_ctx;
 } tg_state;
 
+#define MAX_OBJ_CNT 1
 typedef struct tg_ctx
 {
-    tg_obj*     obj_list;
+    tg_obj*     obj_list[MAX_OBJ_CNT];
     uint32_t    obj_list_cnt;
 
     tg_state    state;
@@ -78,6 +79,8 @@ typedef struct tg_ctx
 
 void tg_init();
 void tg_start_engine(tg_ctx* ctx);
+
+void tg_ctx_add_obj(tg_ctx* ctx, tg_obj* obj);
 
 void get_screen_limits(int* x, int* y);
 
