@@ -37,6 +37,12 @@ typedef struct tg_obj
 
     // Currently active
     int on;
+
+    // Boundaries
+    float min_x_boundary;
+    float max_x_boundary;
+    float min_y_boundary;
+    float max_y_boundary;
 } tg_obj;
 
 typedef struct tg_ai_ctx

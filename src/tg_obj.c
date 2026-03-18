@@ -19,6 +19,14 @@ void tg_obj_init(tg_obj* obj, uint16_t color, int width, int height, float mass)
     obj->height = height;
 
     obj->mass   = mass;
+
+    int max_y, max_x;
+    get_screen_limits(&max_x, &max_y);
+
+    obj->min_x_boundary = 1;
+    obj->max_x_boundary = max_x;
+    obj->min_y_boundary = 1;
+    obj->max_y_boundary = max_y;
 }
 
 void tg_obj_pos_set_middle(tg_obj* obj)
@@ -41,33 +49,31 @@ void tg_obj_process(tg_obj* obj)
     obj->x = obj->x + obj->v_x;
     obj->y = obj->y + obj->v_y;
 
-    // Collision detetion with wall
-    int max_y, max_x;
-    get_screen_limits(&max_x, &max_y);
+    // Collision detetion with boundaries
 
     // Horizontal
-    if (obj->x + obj->width >= max_x - 1)
+    if (obj->x + obj->width >= obj->max_x_boundary - 1)
     {
-        obj->x = max_x - 1 - obj->width;
+        obj->x = obj->max_x_boundary - 1 - obj->width;
         obj->v_x = -obj->v_x;
     }
-    else if (obj->x <= 1)
+    else if (obj->x <= obj->min_x_boundary)
     {
-        obj->x = 1;
+        obj->x = obj->min_x_boundary;
         obj->v_x = -obj->v_x;
     }
 
     // Vertical
-    if (obj->y + obj->height >= max_y)
+    if (obj->y + obj->height >= obj->max_y_boundary)
     {
-        obj->y = max_y - obj->height;
+        obj->y = obj->max_y_boundary - obj->height;
         if (obj->elastic)
             obj->v_y = -obj->v_y;
         else
             obj->v_y = 0;
-    } else if (obj->y <= 1)
+    } else if (obj->y <= obj->min_y_boundary)
     {
-        obj->y = 1;
+        obj->y = obj->min_y_boundary;
         if (obj->elastic)
             obj->v_y = -obj->v_y;
         else
