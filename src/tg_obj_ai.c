@@ -6,7 +6,7 @@
 #include "unistd.h"
 #include "math.h"
 
-#include "main.h"
+#include "tank.h"
 
 #define ACTION_MAGNITUDE_EN
 
@@ -19,29 +19,34 @@
 #define ACTION_SIZE     2
 #define STEP_CONTROL    0.02f
 
-#define SQUARE_IDX      0
+#define TANK_LOWER_ID   0
+#define TANK_UPPER_ID   1
 
 void init_tg_ai(tg_ctx* ctx)
 {
     int layers[LAYER_SIZE]  = {128, 64};
 
-    tg_ai_ctx* ai_ctx = &ctx->state.ai_ctx;
+    for (int i = 0; i < MAX_STATE_CNT; i++)
+    {
+        tg_ai_ctx* ai_ctx = &ctx->state[i].ai_ctx;
 
-    DDPG* ddpg = ddpg_create(STATE_SIZE, ACTION_SIZE, NULL, LAYER_SIZE, layers, LAYER_SIZE, layers, REPLAY_BUF_SIZE, BATCH_SIZE, REWARD_SIZE);
+        DDPG* ddpg = ddpg_create(STATE_SIZE, ACTION_SIZE, NULL, LAYER_SIZE, layers, LAYER_SIZE, layers, REPLAY_BUF_SIZE, BATCH_SIZE, REWARD_SIZE);
 
-    ai_ctx->ddpg = ddpg;
-    ai_ctx->step = 0;
+        ai_ctx->ddpg = ddpg;
+        ai_ctx->step = 0;
 
-    int max_y, max_x;
-    get_screen_limits(&max_x, &max_y);
+        int max_y, max_x;
+        get_screen_limits(&max_x, &max_y);
 
-    ctx->state.target_x = ((float)max_x - (float)ctx->obj_list[SQUARE_IDX]->width) / 2.0f;
-    ctx->state.target_y = ((float)max_y - (float)ctx->obj_list[SQUARE_IDX]->height) / 2.0f;
+        ctx->state[i].target_x = ((float)max_x - (float)ctx->obj_list[TANK_LOWER_ID]->width) / 2.0f;
+        ctx->state[i].target_y = ((float)max_y - (float)ctx->obj_list[TANK_LOWER_ID]->height) / 2.0f;
+    }
 }
 
 void free_tg_ai(tg_ctx* ctx)
 {
-    ddpg_destroy(ctx->state.ai_ctx.ddpg);
+    for (int i = 0; i < MAX_STATE_CNT; i++)
+        ddpg_destroy(ctx->state[i].ai_ctx.ddpg);
 }
 
 #define ACTION_UP   0
@@ -77,22 +82,18 @@ void process_action(float action, float* param)
 #endif
 }
 
-void get_reward(tg_ctx* ctx, float* reward)
+void get_reward(tg_state* state_ctx, tg_obj* obj, float* reward)
 {
-    tg_obj* obj = ctx->obj_list[SQUARE_IDX];
-
-    reward[0] = -fabs(obj->x - ctx->state.target_x) / ctx->state.target_x;
-    reward[1] = -fabs(obj->y - ctx->state.target_y) / ctx->state.target_y;
+    reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
+    reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
 }
 
-void state_step(tg_ctx* ctx, float* reward, float* action)
+void state_step(tg_state* state_ctx, tg_obj* obj, float* reward, float* action)
 {
-    tg_obj* obj = ctx->obj_list[SQUARE_IDX];
-
     process_action(action[0], &obj->f_x);
     process_action(action[1], &obj->f_y);
 
-    get_reward(ctx, reward);
+    get_reward(state_ctx, obj, reward);
 
     tg_obj_process(obj);
 }
@@ -117,40 +118,38 @@ float feature_normalize(float val, float min, float max)
 // 3 -> y velocity
 // 4 -> x force
 // 5 -> y force
-void get_state(tg_ctx* ctx, float* state)
+void get_state(tg_state* state_ctx, tg_obj* obj, float* state)
 {
-    tg_obj* obj = ctx->obj_list[SQUARE_IDX];
-
-    state[0] = feature_normalize(obj->x, 0, ctx->state.target_x*2);
-    state[1] = feature_normalize(obj->y, 0, ctx->state.target_y*2);
+    state[0] = feature_normalize(obj->x, 0, state_ctx->target_x*2);
+    state[1] = feature_normalize(obj->y, 0, state_ctx->target_y*2);
     state[2] = feature_normalize(obj->v_x, -MAX_V, MAX_V);
     state[3] = feature_normalize(obj->v_y, -MAX_V, MAX_V);
     state[4] = feature_normalize(obj->f_x, -MAX_F, MAX_F);
     state[5] = feature_normalize(obj->f_y, -MAX_F, MAX_F);
 }
 
-void step_tg_ai(tg_ctx* ctx)
+void step_tg_ai_tank(tg_state* state_ctx, tg_obj* tank)
 {
     float reward[REWARD_SIZE];
     float state[STATE_SIZE];
 
-    tg_ai_ctx* ai_ctx = &ctx->state.ai_ctx;
+    tg_ai_ctx* ai_ctx = &state_ctx->ai_ctx;
 
     if (ai_ctx->step == 0)
     {
         ddpg_new_episode(ai_ctx->ddpg);
 
-        ctx->obj_list[SQUARE_IDX]->f_x = random_target();
-        ctx->obj_list[SQUARE_IDX]->f_y = random_target();
+        tank->f_x = random_target();
+        tank->f_y = random_target();
     }
 
-    get_state(ctx, state);
+    get_state(state_ctx, tank, state);
 
     float* action = ddpg_action(ai_ctx->ddpg, state);
 
-    state_step(ctx, reward, action);
+    state_step(state_ctx, tank, reward, action);
 
-    get_state(ctx, state);
+    get_state(state_ctx, tank, state);
 
     ai_ctx->step++;
     if (ai_ctx->step >= EPISODE_LENGTH)
@@ -169,42 +168,83 @@ void step_tg_ai(tg_ctx* ctx)
     ddpg_soft_update_target_networks(ai_ctx->ddpg, .005);
 }
 
+void step_tg_ai(tg_ctx* ctx)
+{
+    step_tg_ai_tank(&ctx->state[TANK_LOWER_ID], ctx->obj_list[TANK_LOWER_ID]);
+    step_tg_ai_tank(&ctx->state[TANK_UPPER_ID], ctx->obj_list[2]);
+}
+
+void tank_init_upper(tg_ctx* ctx, tank_ctx* tank)
+{
+    tank_obj_init(ctx, tank, COLOR_MAGENTA);
+
+    tank->dir = TANK_DIR_DOWN;
+
+    tank->tg_body.max_y_boundary = tank->tg_body.max_y_boundary / 2;
+
+    tg_obj_pos_set_middle(&tank->tg_body);
+
+    tank->tg_body.y = tank->tg_body.y / 4;
+}
+
+void tank_init_lower(tg_ctx* ctx, tank_ctx* tank)
+{
+    tank_obj_init(ctx, tank, COLOR_GREEN);
+
+    tank->dir = TANK_DIR_UP;
+
+    tank->tg_body.min_y_boundary = tank->tg_body.max_y_boundary / 2;
+
+    tg_obj_pos_set_middle(&tank->tg_body);
+
+    tank->tg_body.y = tank->tg_body.y - tank->tg_body.y / 4;
+}
+
 void start_ai_obj_test()
 {
     tg_ctx ctx = {0};
 
-    tg_obj obj = {0};
-
     tg_init();
 
-    tg_obj_init(&obj, COLOR_GREEN, 4, 2, 1);
+    tank_ctx tank_lower = {0};
+    tank_init_lower(&ctx, &tank_lower);
 
-    obj.manual_process  = 1;
-    obj.on              = 1;
-    obj.elastic         = 1;
+    tank_ctx tank_upper = {0};
+    tank_init_upper(&ctx, &tank_upper);
 
-    tg_obj_pos_set_middle(&obj);
-
-    tg_ctx_add_obj(&ctx, &obj);
+    tank_lower.tg_body.manual_process = 1;
+    tank_upper.tg_body.manual_process = 1;
 
     tg_start_engine(&ctx);
 }
 
 void draw_tg_ai_status(tg_ctx* ctx)
 {
-    tg_ai_ctx* ai_ctx = &ctx->state.ai_ctx;
+    tg_ai_ctx* ai_ctx = &ctx->state[0].ai_ctx;
 
-    float reward[REWARD_SIZE];
+    float reward[MAX_STATE_CNT][REWARD_SIZE];
 
-    get_reward(ctx, reward);
+    get_reward(&ctx->state[0], ctx->obj_list[0], reward[0]);
+    get_reward(&ctx->state[1], ctx->obj_list[2], reward[1]);
 
     tg_text_reset();
 
-    tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", ai_ctx->episode, ctx->obj_list[SQUARE_IDX]->f_x, ctx->obj_list[SQUARE_IDX]->f_y);
-    tg_draw_text(1, "Position : X=%-3f  Y=%-3f", ctx->obj_list[SQUARE_IDX]->x, ctx->obj_list[SQUARE_IDX]->y);
+    tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", ai_ctx->episode, ctx->obj_list[0]->f_x, ctx->obj_list[0]->f_y);
+    tg_draw_text(1, "Position : X=%-.3f  Y=%-.3f", ctx->obj_list[0]->x, ctx->obj_list[0]->y);
 
     tg_draw_text(2, "Reward   : [");
     for (int i = 0; i < REWARD_SIZE - 1; i++)
-        tg_draw_text(2, "%.3f, ", reward[i]);
-    tg_draw_text(2, "%.3f]", reward[REWARD_SIZE - 1]);
+        tg_draw_text(2, "%-.3f, ", reward[0][i]);
+    tg_draw_text(2, "%-.3f]", reward[0][REWARD_SIZE - 1]);
+
+    tg_text_set_col(0, 40);
+    tg_text_set_col(1, 40);
+    tg_text_set_col(2, 40);
+    tg_draw_text(0, "Fx=%-.2f  Fy=%-.2f", ctx->obj_list[2]->f_x, ctx->obj_list[2]->f_y);
+    tg_draw_text(1, "Position : X=%-.3f  Y=%-.3f", ctx->obj_list[2]->x, ctx->obj_list[2]->y);
+
+    tg_draw_text(2, "Reward   : [");
+    for (int i = 0; i < REWARD_SIZE - 1; i++)
+        tg_draw_text(2, "%-.3f, ", reward[1][i]);
+    tg_draw_text(2, "%-.3f]", reward[1][REWARD_SIZE - 1]);
 }

@@ -68,13 +68,14 @@ typedef struct tg_state
     tg_ai_ctx   ai_ctx;
 } tg_state;
 
-#define MAX_OBJ_CNT 1
+#define MAX_OBJ_CNT     4
+#define MAX_STATE_CNT   2
 typedef struct tg_ctx
 {
     tg_obj*     obj_list[MAX_OBJ_CNT];
     uint32_t    obj_list_cnt;
 
-    tg_state    state;
+    tg_state    state[MAX_STATE_CNT];
 } tg_ctx;
 
 void tg_init();
@@ -86,6 +87,7 @@ void get_screen_limits(int* x, int* y);
 
 void tg_text_reset();
 void tg_draw_text(int line, const char *fmt, ...);
+void tg_text_set_col(int line, int col);
 
 
 void tg_obj_pos_set_middle(tg_obj* obj);

@@ -16,7 +16,7 @@ ifeq ($(WINDOWS),1)
 CFLAGS += -DWINDOWS_BUILD
 endif
 
-_OBJ = main.o tg_render.o tg_obj.o tg_obj_ai.o
+_OBJ = main.o tg_render.o tg_obj.o tg_obj_ai.o tank_obj.o
 OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 
 OBJ += $(DDPG)/build/mlpc/*.o

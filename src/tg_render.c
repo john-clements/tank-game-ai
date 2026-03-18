@@ -47,6 +47,9 @@ void get_screen_limits(int* x, int* y)
 
 void render_obj(tg_obj* obj)
 {
+    if (!obj->on)
+        return;
+
     int y = (int)obj->y;
     int x = (int)obj->x;
 
@@ -64,6 +67,11 @@ void tg_text_reset()
 {
     for (int i = 0; i < STATUS_LINES; i++)
         g_tg_text_col[i] = 0;
+}
+
+void tg_text_set_col(int line, int col)
+{
+    g_tg_text_col[line] = col;
 }
 
 void tg_draw_text(int line, const char *fmt, ...)
