@@ -10,6 +10,8 @@
 uint16_t g_obj_id = 3;
 void tg_obj_init(tg_obj* obj, uint16_t color, int width, int height, float mass)
 {
+    memset((void*)obj, 0, sizeof(tg_obj));
+
     obj->id     = g_obj_id++;
     obj->color  = color;
 
@@ -59,11 +61,17 @@ void tg_obj_process(tg_obj* obj)
     if (obj->y + obj->height >= max_y)
     {
         obj->y = max_y - obj->height;
-        obj->v_y = -obj->v_y;
+        if (obj->elastic)
+            obj->v_y = -obj->v_y;
+        else
+            obj->v_y = 0;
     } else if (obj->y <= 1)
     {
         obj->y = 1;
-        obj->v_y = -obj->v_y;
+        if (obj->elastic)
+            obj->v_y = -obj->v_y;
+        else
+            obj->v_y = 0;
     }
 
     if (obj->v_y > MAX_V)

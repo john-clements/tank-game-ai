@@ -14,9 +14,6 @@ typedef struct tg_obj
 
     uint16_t color;
 
-    int width;
-    int height;
-
     // Position
     float x;
     float y;
@@ -29,7 +26,11 @@ typedef struct tg_obj
     float f_x;
     float f_y;
 
-    float mass;
+    // Physical properties
+    int     width;
+    int     height;
+    float   mass;
+    int     elastic;
 
     // Handling
     int manual_process;

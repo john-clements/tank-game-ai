@@ -182,8 +182,9 @@ void start_ai_obj_test()
 
     tg_obj_init(&obj[SQUARE_IDX], COLOR_GREEN, 4, 2, 1);
 
-    obj[SQUARE_IDX].manual_process = 1;
-    obj[SQUARE_IDX].on = 1;
+    obj[SQUARE_IDX].manual_process  = 1;
+    obj[SQUARE_IDX].on              = 1;
+    obj[SQUARE_IDX].elastic         = 1;
 
     tg_obj_pos_set_middle(&obj[SQUARE_IDX]);
 
