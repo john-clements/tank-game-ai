@@ -15,7 +15,7 @@
 #define REPLAY_BUF_SIZE 20000
 #define BATCH_SIZE      64
 #define REWARD_SIZE     2
-#define STATE_SIZE      6
+#define STATE_SIZE      9
 #define ACTION_SIZE     2
 #define STEP_CONTROL    0.02f
 
@@ -85,12 +85,62 @@ void process_action(float action, float* param)
 #endif
 }
 
+tank_ctx* get_opposite_tank(tank_ctx* tank)
+{
+    tank_ctx* tank_opposite = NULL;
+
+    if (tank->id == TANK_LOWER_ID)
+        tank_opposite = &g_tank_upper;
+    else if (tank->id == TANK_UPPER_ID)
+        tank_opposite = &g_tank_lower;
+
+    return tank_opposite;
+}
+
 void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward)
 {
-    tg_obj* obj = &tank->tg_body;
+    tg_obj*     obj             = &tank->tg_body;
+    tank_ctx*   opposite_tank   = get_opposite_tank(tank);
+    tg_obj*     missle          = &opposite_tank->tg_missle;
 
-    reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
-    reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
+    if (missle->on)
+    {
+        // TODO: Make more precise based on missle/tank orientation/direction
+        if (((missle->v_y > 0) && (missle->y > obj->y)) ||
+            ((missle->v_y < 0) && (missle->y < obj->y)))
+        {
+            reward[0] = 0.0f;
+            reward[1] = 0.0f;
+        }
+        else
+        {
+            float x_diff = fabs(tank->tg_body.x - missle->x);
+            float y_diff = fabs(tank->tg_body.y - missle->y);
+
+            int max_y, max_x;
+            get_screen_limits(&max_x, &max_y);
+
+            //float max_diag  = sqrt(max_x*max_x + max_y*max_y);
+            //float dist_diag = sqrt(x_diff*x_diff + y_diff*y_diff);
+
+            if ((missle->x + missle->width >= obj->x) &&
+                (missle->x <= obj->x + obj->width))
+            {
+                reward[0] = (y_diff / (float)max_y) - 1.0f;
+                reward[1] = (y_diff / (float)max_y) - 1.0f;
+            }
+            else
+            {
+                reward[0] = (x_diff / (float)max_x) - 1.0f;
+                reward[1] = (x_diff / (float)max_x) - 1.0f;
+            }
+        }
+    }
+    else
+    {
+        reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
+        reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
+    }
 }
 
 void state_step(tg_state* state_ctx, tank_ctx* tank, float* reward, float* action)
@@ -129,12 +179,32 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
 {
     tg_obj* obj = &tank->tg_body;
 
-    state[0] = feature_normalize(obj->x,    0,      state_ctx->target_x*2);
-    state[1] = feature_normalize(obj->y,    0,      state_ctx->target_y*2);
+    state[0] = feature_normalize(obj->x,    0.0f,   state_ctx->target_x*2);
+    state[1] = feature_normalize(obj->y,    0.0f,   state_ctx->target_y*2);
     state[2] = feature_normalize(obj->v_x,  -MAX_V, MAX_V);
     state[3] = feature_normalize(obj->v_y,  -MAX_V, MAX_V);
     state[4] = feature_normalize(obj->f_x,  -MAX_F, MAX_F);
     state[5] = feature_normalize(obj->f_y,  -MAX_F, MAX_F);
+
+    state[6] = 0.0f;
+    state[7] = 0.0f;
+    state[8] = 0.0f;
+
+    tank_ctx* opposite_tank = get_opposite_tank(tank);
+
+    if (tank->tg_missle.on)
+    {
+        // TODO: Make more precise based on missle/tank orientation/direction
+        float x_diff = tank->tg_body.x - opposite_tank->tg_missle.x;
+        float y_diff = tank->tg_body.y - opposite_tank->tg_missle.y;
+
+        int max_y, max_x;
+        get_screen_limits(&max_x, &max_y);
+
+        state[6] = 1.0f;
+        state[7] = x_diff / (float)max_x;
+        state[8] = y_diff / (float)max_y;
+    }
 }
 
 void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
@@ -195,12 +265,7 @@ void proccess_tank_missle(tank_ctx* tank)
 
     if (tank->tg_missle.on)
     {
-        tank_ctx* tank_opposite = NULL;
-
-        if (tank->id == TANK_LOWER_ID)
-            tank_opposite = &g_tank_upper;
-        else if (tank->id == TANK_UPPER_ID)
-            tank_opposite = &g_tank_lower;
+        tank_ctx* tank_opposite = get_opposite_tank(tank);
 
         if (tank_missle_collision(tank_opposite, &tank->tg_missle))
         {
@@ -278,6 +343,8 @@ void draw_tg_ai_status_tank(tg_state* state_ctx, tank_ctx* tank)
     for (int i = 0; i < REWARD_SIZE - 1; i++)
         tg_draw_text(2, "%-.3f, ", reward[i]);
     tg_draw_text(2, "%-.3f]", reward[REWARD_SIZE - 1]);
+
+    tg_draw_text(3, "Wins     : %d", tank->hits);
 }
 
 void draw_tg_ai_status(tg_ctx* ctx)
@@ -291,6 +358,7 @@ void draw_tg_ai_status(tg_ctx* ctx)
     tg_text_set_col(0, 40);
     tg_text_set_col(1, 40);
     tg_text_set_col(2, 40);
+    tg_text_set_col(3, 40);
 
     draw_tg_ai_status_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper);
 }

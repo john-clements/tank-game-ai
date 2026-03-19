@@ -78,6 +78,8 @@ typedef struct tg_ctx
     tg_state    state[MAX_STATE_CNT];
 } tg_ctx;
 
+uint64_t get_time_us();
+
 void tg_init();
 void tg_start_engine(tg_ctx* ctx);
 

@@ -3,6 +3,7 @@
 
 #include "main.h"
 
+#define TANK_FIRE_COOL_DOWN_MS 2000
 
 typedef enum tank_dir
 {
@@ -19,6 +20,9 @@ typedef struct tank_ctx
     tg_obj      tg_missle;
 
     tank_dir    dir;
+
+    // Track when last shot occured to handle cooldown
+    uint64_t    fire_ts_ms;
 
     // Stats
     uint64_t    fired;

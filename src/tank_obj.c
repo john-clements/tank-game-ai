@@ -33,8 +33,14 @@ void tank_obj_init(tg_ctx* ctx, tank_ctx* tank, uint16_t color)
 
 void tank_shoot(tank_ctx* tank)
 {
-    tank->tg_missle.x = tank->tg_body.x + TANK_WIDTH/2;
-    tank->tg_missle.y = tank->tg_body.y;
+    uint64_t time_ms = get_time_us() / 1000;
+
+    if (time_ms - tank->fire_ts_ms < TANK_FIRE_COOL_DOWN_MS)
+        return;
+
+    tank->fire_ts_ms    = time_ms;
+    tank->tg_missle.x   = tank->tg_body.x + TANK_WIDTH/2;
+    tank->tg_missle.y   = tank->tg_body.y;
 
     if (tank->dir == TANK_DIR_UP)
         tank->tg_missle.v_y = -MISSLE_VELOCITY;
@@ -48,8 +54,10 @@ void tank_shoot(tank_ctx* tank)
 
 int tank_missle_collision(tank_ctx* tank, tg_obj* missle)
 {
-    if ((missle->x > tank->tg_body.x) && (missle->x <= tank->tg_body.x + tank->tg_body.width) &&
-        (missle->y >= tank->tg_body.y) && (missle->y <= tank->tg_body.y + tank->tg_body.height))
+    if ((missle->x + missle->width >= tank->tg_body.x) &&
+        (missle->x <= tank->tg_body.x + tank->tg_body.width) &&
+        (missle->y + missle->height >= tank->tg_body.y) &&
+        (missle->y <= tank->tg_body.y + tank->tg_body.height))
     {
         return 1;
     }

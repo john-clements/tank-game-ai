@@ -9,28 +9,29 @@
 
 #include "main.h"
 
-#define STATUS_LINES        3       // Lines reserved below frame for text
+#define STATUS_LINES        4       // Lines reserved below frame for text
 
 #define FRAME_PERIOD_US     30000   // 33 FPS
 
 uint64_t g_tg_time_us = 0;
 
-void tg_time_start()
+uint64_t get_time_us()
 {
     struct timespec tms;
 
     clock_gettime(CLOCK_REALTIME, &tms);
 
-    g_tg_time_us = (uint64_t)tms.tv_sec * 1000000 + (uint64_t)tms.tv_nsec / 1000;
+    return (uint64_t)tms.tv_sec * 1000000 + (uint64_t)tms.tv_nsec / 1000;
+}
+
+void tg_time_start()
+{
+    g_tg_time_us = get_time_us();
 }
 
 void tg_wait()
 {
-    struct timespec tms;
-
-    clock_gettime(CLOCK_REALTIME, &tms);
-
-    uint64_t time = (uint64_t)tms.tv_sec * 1000000 + (uint64_t)tms.tv_nsec / 1000;
+    uint64_t time = get_time_us();
 
     if (time >= g_tg_time_us + FRAME_PERIOD_US)
         return;
