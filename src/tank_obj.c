@@ -42,5 +42,17 @@ void tank_shoot(tank_ctx* tank)
         tank->tg_missle.v_y = MISSLE_VELOCITY;
 
     tank->tg_missle.on = 1;
+
+    tank->fired++;
 }
 
+int tank_missle_collision(tank_ctx* tank, tg_obj* missle)
+{
+    if ((missle->x > tank->tg_body.x) && (missle->x <= tank->tg_body.x + tank->tg_body.width) &&
+        (missle->y >= tank->tg_body.y) && (missle->y <= tank->tg_body.y + tank->tg_body.height))
+    {
+        return 1;
+    }
+
+    return 0;
+}

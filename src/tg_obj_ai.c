@@ -186,6 +186,24 @@ void proccess_tank_missle(tank_ctx* tank)
         // Collision
         tank->tg_missle.on = 0;
     }
+
+    if (tank->tg_missle.on)
+    {
+        tank_ctx* tank_opposite = NULL;
+
+        if (tank->id == TANK_LOWER_ID)
+            tank_opposite = &g_tank_upper;
+        else if (tank->id == TANK_UPPER_ID)
+            tank_opposite = &g_tank_lower;
+
+        if (tank_missle_collision(tank_opposite, &tank->tg_missle))
+        {
+            // Tank collision
+            tank->tg_missle.on = 0;
+            tank->hits++;
+            tank_opposite->damage++;
+        }
+    }
 }
 
 void step_tg_ai(tg_ctx* ctx)
@@ -207,7 +225,7 @@ void tank_init_upper(tg_ctx* ctx, tank_ctx* tank)
 
     tg_obj_pos_set_middle(&tank->tg_body);
 
-    tank->tg_body.y = tank->tg_body.y / 4;
+    tank->tg_body.y = tank->tg_body.y - tank->tg_body.y / 2;
 }
 
 void tank_init_lower(tg_ctx* ctx, tank_ctx* tank)
@@ -220,7 +238,7 @@ void tank_init_lower(tg_ctx* ctx, tank_ctx* tank)
 
     tg_obj_pos_set_middle(&tank->tg_body);
 
-    tank->tg_body.y = tank->tg_body.y - tank->tg_body.y / 4;
+    tank->tg_body.y = tank->tg_body.y + tank->tg_body.y / 2;
 }
 
 void start_ai_obj_test()
