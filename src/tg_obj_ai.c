@@ -85,18 +85,22 @@ void process_action(float action, float* param)
 #endif
 }
 
-void get_reward(tg_state* state_ctx, tg_obj* obj, float* reward)
+void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward)
 {
+    tg_obj* obj = &tank->tg_body;
+
     reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
     reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
 }
 
-void state_step(tg_state* state_ctx, tg_obj* obj, float* reward, float* action)
+void state_step(tg_state* state_ctx, tank_ctx* tank, float* reward, float* action)
 {
+    tg_obj* obj = &tank->tg_body;
+
     process_action(action[0], &obj->f_x);
     process_action(action[1], &obj->f_y);
 
-    get_reward(state_ctx, obj, reward);
+    get_reward(state_ctx, tank, reward);
 
     tg_obj_process(obj);
 }
@@ -121,17 +125,19 @@ float feature_normalize(float val, float min, float max)
 // 3 -> y velocity
 // 4 -> x force
 // 5 -> y force
-void get_state(tg_state* state_ctx, tg_obj* obj, float* state)
+void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
 {
-    state[0] = feature_normalize(obj->x, 0, state_ctx->target_x*2);
-    state[1] = feature_normalize(obj->y, 0, state_ctx->target_y*2);
-    state[2] = feature_normalize(obj->v_x, -MAX_V, MAX_V);
-    state[3] = feature_normalize(obj->v_y, -MAX_V, MAX_V);
-    state[4] = feature_normalize(obj->f_x, -MAX_F, MAX_F);
-    state[5] = feature_normalize(obj->f_y, -MAX_F, MAX_F);
+    tg_obj* obj = &tank->tg_body;
+
+    state[0] = feature_normalize(obj->x,    0,      state_ctx->target_x*2);
+    state[1] = feature_normalize(obj->y,    0,      state_ctx->target_y*2);
+    state[2] = feature_normalize(obj->v_x,  -MAX_V, MAX_V);
+    state[3] = feature_normalize(obj->v_y,  -MAX_V, MAX_V);
+    state[4] = feature_normalize(obj->f_x,  -MAX_F, MAX_F);
+    state[5] = feature_normalize(obj->f_y,  -MAX_F, MAX_F);
 }
 
-void step_tg_ai_tank(tg_state* state_ctx, tg_obj* tank)
+void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 {
     float reward[REWARD_SIZE];
     float state[STATE_SIZE];
@@ -142,8 +148,8 @@ void step_tg_ai_tank(tg_state* state_ctx, tg_obj* tank)
     {
         ddpg_new_episode(ai_ctx->ddpg);
 
-        tank->f_x = random_target();
-        tank->f_y = random_target();
+        tank->tg_body.f_x = random_target();
+        tank->tg_body.f_y = random_target();
     }
 
     get_state(state_ctx, tank, state);
@@ -208,8 +214,8 @@ void proccess_tank_missle(tank_ctx* tank)
 
 void step_tg_ai(tg_ctx* ctx)
 {
-    step_tg_ai_tank(&ctx->state[TANK_LOWER_ID], &g_tank_lower.tg_body);
-    step_tg_ai_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper.tg_body);
+    step_tg_ai_tank(&ctx->state[TANK_LOWER_ID], &g_tank_lower);
+    step_tg_ai_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper);
 
     proccess_tank_missle(&g_tank_lower);
     proccess_tank_missle(&g_tank_upper);
@@ -263,7 +269,7 @@ void draw_tg_ai_status_tank(tg_state* state_ctx, tank_ctx* tank)
 {
     float reward[REWARD_SIZE];
 
-    get_reward(state_ctx, &tank->tg_body, reward);
+    get_reward(state_ctx, tank, reward);
 
     tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", state_ctx->ai_ctx.episode, tank->tg_body.f_x, tank->tg_body.f_y);
     tg_draw_text(1, "Position : X=%-.3f  Y=%-.3f", tank->tg_body.x, tank->tg_body.y);
