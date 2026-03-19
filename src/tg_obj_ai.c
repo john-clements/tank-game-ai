@@ -106,11 +106,11 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward)
     if (missle->on)
     {
         // TODO: Make more precise based on missle/tank orientation/direction
-        if (((missle->v_y > 0) && (missle->y > obj->y)) ||
-            ((missle->v_y < 0) && (missle->y < obj->y)))
+        if (((missle->v_y > 0) && (missle->y > obj->y + obj->height)) ||
+            ((missle->v_y < 0) && (missle->y + missle->height < obj->y)))
         {
-            reward[0] = 0.0f;
-            reward[1] = 0.0f;
+            reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
+            reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
         }
         else
         {
@@ -120,19 +120,20 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward)
             int max_y, max_x;
             get_screen_limits(&max_x, &max_y);
 
-            //float max_diag  = sqrt(max_x*max_x + max_y*max_y);
-            //float dist_diag = sqrt(x_diff*x_diff + y_diff*y_diff);
 
-            if ((missle->x + missle->width >= obj->x) &&
-                (missle->x <= obj->x + obj->width))
+            if ((missle->x + missle->width + 1 >= obj->x) &&
+                (missle->x <= obj->x + obj->width + 1))
             {
                 reward[0] = (y_diff / (float)max_y) - 1.0f;
                 reward[1] = (y_diff / (float)max_y) - 1.0f;
             }
             else
             {
-                reward[0] = (x_diff / (float)max_x) - 1.0f;
-                reward[1] = (x_diff / (float)max_x) - 1.0f;
+                //float max_diag  = sqrt(max_x*max_x + max_y*max_y);
+                //float dist_diag = sqrt(x_diff*x_diff + y_diff*y_diff);
+
+                reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
+                reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
             }
         }
     }
@@ -192,7 +193,7 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
 
     tank_ctx* opposite_tank = get_opposite_tank(tank);
 
-    if (tank->tg_missle.on)
+    if (opposite_tank->tg_missle.on)
     {
         // TODO: Make more precise based on missle/tank orientation/direction
         float x_diff = tank->tg_body.x - opposite_tank->tg_missle.x;
