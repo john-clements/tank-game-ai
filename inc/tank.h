@@ -37,4 +37,6 @@ void tank_shoot(tank_ctx* tank);
 
 int tank_missle_collision(tank_ctx* tank, tg_obj* missle);
 
+int tank_projectile_cool_down_ms(tank_ctx* tank);
+
 #endif

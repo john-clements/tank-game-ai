@@ -31,6 +31,16 @@ void tank_obj_init(tg_ctx* ctx, tank_ctx* tank, uint16_t color)
     tg_ctx_add_obj(ctx, &tank->tg_missle);
 }
 
+int tank_projectile_cool_down_ms(tank_ctx* tank)
+{
+    uint64_t time_ms = get_time_us() / 1000;
+
+    if (time_ms - tank->fire_ts_ms < TANK_FIRE_COOL_DOWN_MS)
+        return TANK_FIRE_COOL_DOWN_MS - (time_ms - tank->fire_ts_ms);
+
+    return 0;
+}
+
 void tank_shoot(tank_ctx* tank)
 {
     uint64_t time_ms = get_time_us() / 1000;

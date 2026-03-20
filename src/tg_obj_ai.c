@@ -15,8 +15,8 @@
 #define REPLAY_BUF_SIZE 20000
 #define BATCH_SIZE      64
 #define REWARD_SIZE     2
-#define STATE_SIZE      9
-#define ACTION_SIZE     2
+#define STATE_SIZE      10
+#define ACTION_SIZE     3
 #define STEP_CONTROL    0.02f
 
 #define TANK_LOWER_ID   0
@@ -151,6 +151,9 @@ void state_step(tg_state* state_ctx, tank_ctx* tank, float* reward, float* actio
     process_action(action[0], &obj->f_x);
     process_action(action[1], &obj->f_y);
 
+    if (action[2] > 0.2f)
+        tank_shoot(tank);
+
     get_reward(state_ctx, tank, reward);
 
     tg_obj_process(obj);
@@ -176,6 +179,7 @@ float feature_normalize(float val, float min, float max)
 // 3 -> y velocity
 // 4 -> x force
 // 5 -> y force
+// 6 -> projectile cool down
 void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
 {
     tg_obj* obj = &tank->tg_body;
@@ -187,9 +191,11 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
     state[4] = feature_normalize(obj->f_x,  -MAX_F, MAX_F);
     state[5] = feature_normalize(obj->f_y,  -MAX_F, MAX_F);
 
-    state[6] = 0.0f;
+    state[6] = (float)(tank_projectile_cool_down_ms(tank) / TANK_FIRE_COOL_DOWN_MS);
+
     state[7] = 0.0f;
     state[8] = 0.0f;
+    state[9] = 0.0f;
 
     tank_ctx* opposite_tank = get_opposite_tank(tank);
 
@@ -205,9 +211,9 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
         int max_y, max_x;
         get_screen_limits(&max_x, &max_y);
 
-        state[6] = state_ctx->fire_decay;
-        state[7] = x_diff / (float)max_x;
-        state[8] = y_diff / (float)max_y;
+        state[7] = state_ctx->fire_decay;
+        state[8] = x_diff / (float)max_x;
+        state[9] = y_diff / (float)max_y;
 
         state_ctx->fire_decay = state_ctx->fire_decay + 0.05f;
 
@@ -260,6 +266,7 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
 void proccess_tank_missle(tank_ctx* tank)
 {
+/*
     if (!tank->tg_missle.on)
     {
         if (deepc_random_int(0, 10) == 5)
@@ -267,7 +274,7 @@ void proccess_tank_missle(tank_ctx* tank)
         else
             return;
     }
-
+*/
     if (tg_obj_process(&tank->tg_missle))
     {
         // Collision
