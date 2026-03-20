@@ -14,7 +14,7 @@
 #define LAYER_SIZE      2
 #define REPLAY_BUF_SIZE 20000
 #define BATCH_SIZE      64
-#define REWARD_SIZE     2
+#define REWARD_SIZE     3
 #define STATE_SIZE      10
 #define ACTION_SIZE     3
 #define STEP_CONTROL    0.02f
@@ -142,6 +142,8 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward)
         reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
         reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
     }
+
+    reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
 }
 
 void state_step(tg_state* state_ctx, tank_ctx* tank, float* reward, float* action)

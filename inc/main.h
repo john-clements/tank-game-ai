@@ -5,8 +5,8 @@
 
 #include "ddpg.h"
 
-#define MAX_V 1.6
-#define MAX_F 1.0
+#define MAX_V 1.2
+#define MAX_F 0.5
 
 typedef struct tg_obj
 {
