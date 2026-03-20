@@ -199,13 +199,23 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
         float x_diff = tank->tg_body.x - opposite_tank->tg_missle.x;
         float y_diff = tank->tg_body.y - opposite_tank->tg_missle.y;
 
+        if (state_ctx->fire_decay < 0.0f)
+            state_ctx->fire_decay = 0.0f;
+
         int max_y, max_x;
         get_screen_limits(&max_x, &max_y);
 
-        state[6] = 1.0f;
+        state[6] = state_ctx->fire_decay;
         state[7] = x_diff / (float)max_x;
         state[8] = y_diff / (float)max_y;
+
+        state_ctx->fire_decay = state_ctx->fire_decay + 0.05f;
+
+        if (state_ctx->fire_decay > 1.0f)
+            state_ctx->fire_decay = 1.0f;
     }
+    else
+        state_ctx->fire_decay = -1.0f;
 }
 
 void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
@@ -219,8 +229,8 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
     {
         ddpg_new_episode(ai_ctx->ddpg);
 
-        tank->tg_body.f_x = random_target();
-        tank->tg_body.f_y = random_target();
+        //tank->tg_body.f_x = random_target();
+        //tank->tg_body.f_y = random_target();
     }
 
     get_state(state_ctx, tank, state);

@@ -5,8 +5,8 @@
 
 #include "ddpg.h"
 
-#define MAX_V 2.0
-#define MAX_F 2.0
+#define MAX_V 1.6
+#define MAX_F 1.0
 
 typedef struct tg_obj
 {
@@ -63,6 +63,9 @@ typedef struct tg_state
     // Target destination
     float target_x;
     float target_y;
+
+    // State time context
+    float fire_decay;
 
     // Obj AI processing
     tg_ai_ctx   ai_ctx;

@@ -124,6 +124,8 @@ void tg_init()
 
 #ifdef FIXED_SCREEN_SIZE
     getmaxyx(stdscr, g_max_sceen_y, g_max_sceen_x);
+
+    g_max_sceen_y = g_max_sceen_y - STATUS_LINES - 1;
 #endif
 }
 
