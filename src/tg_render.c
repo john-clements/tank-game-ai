@@ -9,6 +9,8 @@
 
 #include "main.h"
 
+#define FIXED_SCREEN_SIZE
+
 #define STATUS_LINES        4       // Lines reserved below frame for text
 
 #define FRAME_PERIOD_US     30000   // 33 FPS
@@ -39,11 +41,21 @@ void tg_wait()
     usleep(FRAME_PERIOD_US - (time - g_tg_time_us));
 }
 
+#ifdef FIXED_SCREEN_SIZE
+int g_max_sceen_x = 0;
+int g_max_sceen_y = 0;
+#endif
+
 void get_screen_limits(int* x, int* y)
 {
+#ifdef FIXED_SCREEN_SIZE
+    *x = g_max_sceen_x;
+    *y = g_max_sceen_y;
+#else
     getmaxyx(stdscr, *y, *x);
 
     *y = *y - STATUS_LINES - 1;
+#endif
 }
 
 void render_obj(tg_obj* obj)
@@ -109,6 +121,10 @@ void tg_init()
     nodelay(stdscr, TRUE);
     idlok(stdscr, FALSE);
     idcok(stdscr, FALSE);
+
+#ifdef FIXED_SCREEN_SIZE
+    getmaxyx(stdscr, g_max_sceen_y, g_max_sceen_x);
+#endif
 }
 
 void tg_start_engine(tg_ctx* ctx)
