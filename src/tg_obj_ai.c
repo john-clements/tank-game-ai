@@ -11,6 +11,7 @@
 #define ACTION_MAGNITUDE_EN
 #define STATIONARY_TOP_EN
 
+//#define CONTINOUS_FIRING
 
 #define EPISODE_LENGTH  200
 #define LAYER_SIZE      2
@@ -29,7 +30,7 @@ tank_ctx g_tank_upper = {0};
 
 void init_tg_ai(tg_ctx* ctx)
 {
-    int layers[LAYER_SIZE]  = {128, 64};
+    int layers[LAYER_SIZE]  = {64, 64};
 
     for (int i = 0; i < MAX_STATE_CNT; i++)
     {
@@ -89,8 +90,10 @@ void process_action(float action, float* param)
 
 int is_action_shoot(float action)
 {
+#ifndef CONTINOUS_FIRING
     if (action >= .2)
         return 1;
+#endif
     return 0;
 }
 
@@ -120,13 +123,19 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward, float* actio
 
         if (action != NULL)
         {
+#ifdef CONTINOUS_FIRING
+            reward[2] = 0.0f;
+#else
             if (is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
-                reward[2] = 1;
+                reward[2] = 0.0f;
             else if (!is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
-                reward[2] = 0;
+                reward[2] = -1.0f;
             else
-                reward[2] = 1;
+                reward[2] = 0.0f;
+#endif
         }
+
+        return;
     }
 #endif
 
@@ -253,6 +262,37 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
         state_ctx->fire_decay = -1.0f;
 }
 
+void proccess_tank_missle(tank_ctx* tank)
+{
+#ifdef CONTINOUS_FIRING
+    if (!tank->tg_missle.on)
+    {
+        if (deepc_random_int(0, 10) == 5)
+            tank_shoot(tank);
+        else
+            return;
+    }
+#endif
+    if (tg_obj_process(&tank->tg_missle))
+    {
+        // Collision
+        tank->tg_missle.on = 0;
+    }
+
+    if (tank->tg_missle.on)
+    {
+        tank_ctx* tank_opposite = get_opposite_tank(tank);
+
+        if (tank_missle_collision(tank_opposite, &tank->tg_missle))
+        {
+            // Tank collision
+            tank->tg_missle.on = 0;
+            tank->hits++;
+            tank_opposite->damage++;
+        }
+    }
+}
+
 void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 {
     float reward[REWARD_SIZE];
@@ -274,6 +314,8 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
     state_step(state_ctx, tank, reward, action);
 
+    proccess_tank_missle(tank);
+
     get_state(state_ctx, tank, state);
 
     ai_ctx->step++;
@@ -283,9 +325,9 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
         ai_ctx->episode++;
     }
 
-    if (ai_ctx->step == 0)
-        ddpg_observe(ai_ctx->ddpg, action, reward, state, 1);
-    else
+    //if (ai_ctx->step == 0)
+    //    ddpg_observe(ai_ctx->ddpg, action, reward, state, 1);
+    //else
         ddpg_observe(ai_ctx->ddpg, action, reward, state, 0);
 
     ddpg_train(ai_ctx->ddpg, 0.99);
@@ -293,44 +335,10 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
     ddpg_soft_update_target_networks(ai_ctx->ddpg, .005);
 }
 
-void proccess_tank_missle(tank_ctx* tank)
-{
-/*
-    if (!tank->tg_missle.on)
-    {
-        if (deepc_random_int(0, 10) == 5)
-            tank_shoot(tank);
-        else
-            return;
-    }
-*/
-    if (tg_obj_process(&tank->tg_missle))
-    {
-        // Collision
-        tank->tg_missle.on = 0;
-    }
-
-    if (tank->tg_missle.on)
-    {
-        tank_ctx* tank_opposite = get_opposite_tank(tank);
-
-        if (tank_missle_collision(tank_opposite, &tank->tg_missle))
-        {
-            // Tank collision
-            tank->tg_missle.on = 0;
-            tank->hits++;
-            tank_opposite->damage++;
-        }
-    }
-}
-
 void step_tg_ai(tg_ctx* ctx)
 {
     step_tg_ai_tank(&ctx->state[TANK_LOWER_ID], &g_tank_lower);
     step_tg_ai_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper);
-
-    proccess_tank_missle(&g_tank_lower);
-    proccess_tank_missle(&g_tank_upper);
 }
 
 void tank_init_upper(tg_ctx* ctx, tank_ctx* tank)
