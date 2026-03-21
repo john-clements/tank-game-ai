@@ -15,7 +15,11 @@
 
 #define FRAME_PERIOD_US     30000   // 33 FPS
 
+#define FAST_RENDER_CNT     20000
+
 uint64_t g_tg_time_us = 0;
+
+uint64_t g_fast_render_cnt = 0;
 
 uint64_t get_time_us()
 {
@@ -129,6 +133,44 @@ void tg_init()
 #endif
 }
 
+void tg_engine_draw(tg_ctx* ctx)
+{
+    int max_y, max_x;
+    get_screen_limits(&max_x, &max_y);
+
+    // Draw
+    erase();
+
+    // Frame border
+    for (int col = 0; col < max_x; col++) {
+        mvaddch(0,      col, ACS_HLINE);
+        mvaddch(max_y,  col, ACS_HLINE);
+    }
+    for (int row = 0; row <= max_y; row++) {
+        mvaddch(row, 0,         ACS_VLINE);
+        mvaddch(row, max_x - 1, ACS_VLINE);
+    }
+    mvaddch(0,      0,         ACS_ULCORNER);
+    mvaddch(0,      max_x - 1, ACS_URCORNER);
+    mvaddch(max_y,  0,         ACS_LLCORNER);
+    mvaddch(max_y,  max_x - 1, ACS_LRCORNER);
+
+    // Draw label
+    attron(COLOR_PAIR(1));
+    mvprintw(0, (max_x - 22) / 2, " AI Square  [q] quit ");
+    attroff(COLOR_PAIR(1));
+
+    // Draw objects
+    for (int i = 0; i < ctx->obj_list_cnt; i++)
+        render_obj(ctx->obj_list[i]);
+
+    // Draw status text
+    attron(COLOR_PAIR(2));
+    draw_tg_ai_status(ctx);
+    attroff(COLOR_PAIR(2));
+    refresh();
+}
+
 void tg_start_engine(tg_ctx* ctx)
 {
     start_color();
@@ -155,42 +197,18 @@ void tg_start_engine(tg_ctx* ctx)
 
         step_tg_ai(ctx);
 
-        int max_y, max_x;
-        get_screen_limits(&max_x, &max_y);
-
-        // Draw
-        erase();
- 
-        // Frame border
-        for (int col = 0; col < max_x; col++) {
-            mvaddch(0,      col, ACS_HLINE);
-            mvaddch(max_y,  col, ACS_HLINE);
+        if (g_fast_render_cnt >= FAST_RENDER_CNT)
+        {
+            tg_engine_draw(ctx);
+            tg_wait();
         }
-        for (int row = 0; row <= max_y; row++) {
-            mvaddch(row, 0,         ACS_VLINE);
-            mvaddch(row, max_x - 1, ACS_VLINE);
+        else
+        {
+            if (g_fast_render_cnt % 20 == 0)
+                tg_engine_draw(ctx);
         }
-        mvaddch(0,      0,         ACS_ULCORNER);
-        mvaddch(0,      max_x - 1, ACS_URCORNER);
-        mvaddch(max_y,  0,         ACS_LLCORNER);
-        mvaddch(max_y,  max_x - 1, ACS_LRCORNER);
 
-        // Draw label
-        attron(COLOR_PAIR(1));
-        mvprintw(0, (max_x - 22) / 2, " AI Square  [q] quit ");
-        attroff(COLOR_PAIR(1));
- 
-        // Draw objects
-        for (int i = 0; i < ctx->obj_list_cnt; i++)
-            render_obj(ctx->obj_list[i]);
-
-        // Draw status text
-        attron(COLOR_PAIR(2));
-        draw_tg_ai_status(ctx);
-        attroff(COLOR_PAIR(2));
-
-        refresh();
-        tg_wait();
+        g_fast_render_cnt++;
     }
  
     endwin();
