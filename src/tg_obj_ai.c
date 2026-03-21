@@ -141,7 +141,6 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward, float* actio
 
     if (missle->on)
     {
-        // TODO: Make more precise based on missle/tank orientation/direction
         if (((missle->v_y > 0) && (missle->y > obj->y + obj->height)) ||
             ((missle->v_y < 0) && (missle->y + missle->height < obj->y)))
         {
@@ -160,8 +159,8 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward, float* actio
             if ((missle->x + missle->width + 1 >= obj->x) &&
                 (missle->x <= obj->x + obj->width + 1))
             {
-                reward[0] = (y_diff / (float)max_y) - 1.0f;
-                reward[1] = (y_diff / (float)max_y) - 1.0f;
+                reward[0] = (x_diff / (float)max_x) - 1.0f;
+                reward[1] = (x_diff / (float)max_x) - 1.0f;
             }
             else
             {
