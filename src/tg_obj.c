@@ -120,3 +120,25 @@ void tg_ctx_add_obj(tg_ctx* ctx, tg_obj* obj)
 
     ctx->obj_list[ctx->obj_list_cnt++] = obj;
 }
+
+// distance X of a - b
+float tg_obj_dist_x(tg_obj* a, tg_obj* b)
+{
+    if (a->x < b->x)
+        return b->x - (a->x + (float)a->width);
+    else if (a->x > b->x)
+        return (b->x + (float)b->width) - a->x;
+
+    return 0.0f;
+}
+
+// distance Y of a - b
+float tg_obj_dist_y(tg_obj* a, tg_obj* b)
+{
+    if (a->y < b->y)
+        return b->y - (a->y + (float)a->height);
+    else if (a->x > b->x)
+        return (b->y + (float)b->height) - a->y;
+
+    return 0.0f;
+}

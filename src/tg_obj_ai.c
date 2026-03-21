@@ -72,7 +72,7 @@ int get_action_index(float action)
 void process_action(float action, float* param)
 {
 #ifdef ACTION_MAGNITUDE_EN
-    *param = action;
+    *param = action * MAX_F;
 #else
     float action_scale = get_action_index(action);
 
@@ -149,8 +149,8 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward, float* actio
         }
         else
         {
-            float x_diff = fabs(tank->tg_body.x - missle->x);
-            float y_diff = fabs(tank->tg_body.y - missle->y);
+            float x_diff = fabs(tg_obj_dist_x(&tank->tg_body, missle));
+            float y_diff = fabs(tg_obj_dist_y(&tank->tg_body, missle));
 
             int max_y, max_x;
             get_screen_limits(&max_x, &max_y);
@@ -238,9 +238,8 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
 
     if (opposite_tank->tg_missle.on)
     {
-        // TODO: Make more precise based on missle/tank orientation/direction
-        float x_diff = tank->tg_body.x - opposite_tank->tg_missle.x;
-        float y_diff = tank->tg_body.y - opposite_tank->tg_missle.y;
+        float x_diff = tg_obj_dist_x(&tank->tg_body, &opposite_tank->tg_missle);
+        float y_diff = tg_obj_dist_y(&tank->tg_body, &opposite_tank->tg_missle);
 
         if (state_ctx->fire_decay < 0.0f)
             state_ctx->fire_decay = 0.0f;

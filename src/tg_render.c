@@ -15,7 +15,7 @@
 
 #define FRAME_PERIOD_US     30000   // 33 FPS
 
-#define FAST_RENDER_CNT     20000
+#define FAST_RENDER_CNT     40000
 
 uint64_t g_tg_time_us = 0;
 
