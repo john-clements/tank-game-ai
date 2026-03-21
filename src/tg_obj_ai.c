@@ -10,7 +10,7 @@
 
 #define ACTION_MAGNITUDE_EN
 #define STATIONARY_TOP_EN
-
+//#define ML_TOP_EN
 //#define CONTINOUS_FIRING
 
 #define EPISODE_LENGTH  200
@@ -262,17 +262,30 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
         state_ctx->fire_decay = -1.0f;
 }
 
+int missle_check_shoot(tank_ctx* tank)
+{
+    if (tank->tg_missle.on)
+        return 1;
+
+    if (deepc_random_int(0, 10) == 5)
+    {
+        tank_shoot(tank);
+        return 1;
+    }
+
+    return 0;
+}
+
 void proccess_tank_missle(tank_ctx* tank)
 {
-#ifdef CONTINOUS_FIRING
     if (!tank->tg_missle.on)
     {
-        if (deepc_random_int(0, 10) == 5)
-            tank_shoot(tank);
-        else
+#ifdef CONTINOUS_FIRING
+        if (!missle_check_shoot(tank))
+#endif
             return;
     }
-#endif
+
     if (tg_obj_process(&tank->tg_missle))
     {
         // Collision
@@ -338,7 +351,12 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 void step_tg_ai(tg_ctx* ctx)
 {
     step_tg_ai_tank(&ctx->state[TANK_LOWER_ID], &g_tank_lower);
+#ifdef ML_TOP_EN
     step_tg_ai_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper);
+#else
+    missle_check_shoot(&g_tank_upper);
+    proccess_tank_missle(&g_tank_upper);
+#endif
 }
 
 void tank_init_upper(tg_ctx* ctx, tank_ctx* tank)
