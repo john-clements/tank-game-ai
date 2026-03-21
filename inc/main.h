@@ -88,6 +88,8 @@ void tg_start_engine(tg_ctx* ctx);
 void tg_ctx_add_obj(tg_ctx* ctx, tg_obj* obj);
 float tg_obj_dist_x(tg_obj* a, tg_obj* b);
 float tg_obj_dist_y(tg_obj* a, tg_obj* b);
+float tg_obj_dist_x_center(tg_obj* a, tg_obj* b);
+float tg_obj_dist_y_center(tg_obj* a, tg_obj* b);
 
 void get_screen_limits(int* x, int* y);
 

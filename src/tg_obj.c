@@ -121,12 +121,16 @@ void tg_ctx_add_obj(tg_ctx* ctx, tg_obj* obj)
     ctx->obj_list[ctx->obj_list_cnt++] = obj;
 }
 
-// distance X of a - b
+////////////////////////////////
+// DISTANCE FROM OBJECT EDGES //
+////////////////////////////////
+
+// distance X of b - a
 float tg_obj_dist_x(tg_obj* a, tg_obj* b)
 {
-    if (a->x < b->x)
+    if ((a->x + (float)a->width) < b->x)
         return b->x - (a->x + (float)a->width);
-    else if (a->x > b->x)
+    else if (a->x > (b->x + (float)b->width))
         return (b->x + (float)b->width) - a->x;
 
     return 0.0f;
@@ -135,10 +139,26 @@ float tg_obj_dist_x(tg_obj* a, tg_obj* b)
 // distance Y of a - b
 float tg_obj_dist_y(tg_obj* a, tg_obj* b)
 {
-    if (a->y < b->y)
+    if ((a->y + (float)a->height) < b->y)
         return b->y - (a->y + (float)a->height);
-    else if (a->x > b->x)
+    else if (a->x > (b->y + (float)b->height))
         return (b->y + (float)b->height) - a->y;
 
     return 0.0f;
+}
+
+//////////////////////////////////
+// DISTANCE FROM OBJECT CENTERS //
+//////////////////////////////////
+
+// distance X of b - a
+float tg_obj_dist_x_center(tg_obj* a, tg_obj* b)
+{
+    return (b->x + ((float)b->width)/2) - (a->x + ((float)a->width)/2.0f);
+}
+
+// distance Y of a - b
+float tg_obj_dist_y_center(tg_obj* a, tg_obj* b)
+{
+    return (b->y + ((float)b->height)/2) - (a->y + ((float)a->height)/2.0f);
 }
