@@ -9,6 +9,8 @@
 #include "tank.h"
 
 #define ACTION_MAGNITUDE_EN
+#define STATIONARY_TOP_EN
+
 
 #define EPISODE_LENGTH  200
 #define LAYER_SIZE      2
@@ -85,6 +87,13 @@ void process_action(float action, float* param)
 #endif
 }
 
+int is_action_shoot(float action)
+{
+    if (action >= .2)
+        return 1;
+    return 0;
+}
+
 tank_ctx* get_opposite_tank(tank_ctx* tank)
 {
     tank_ctx* tank_opposite = NULL;
@@ -97,11 +106,29 @@ tank_ctx* get_opposite_tank(tank_ctx* tank)
     return tank_opposite;
 }
 
-void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward)
+void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward, float* action)
 {
     tg_obj*     obj             = &tank->tg_body;
     tank_ctx*   opposite_tank   = get_opposite_tank(tank);
     tg_obj*     missle          = &opposite_tank->tg_missle;
+
+#ifdef STATIONARY_TOP_EN
+    if (tank->id == TANK_UPPER_ID)
+    {
+        reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
+        reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
+
+        if (action != NULL)
+        {
+            if (is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
+                reward[2] = 1;
+            else if (!is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
+                reward[2] = 0;
+            else
+                reward[2] = 1;
+        }
+    }
+#endif
 
     if (missle->on)
     {
@@ -153,10 +180,10 @@ void state_step(tg_state* state_ctx, tank_ctx* tank, float* reward, float* actio
     process_action(action[0], &obj->f_x);
     process_action(action[1], &obj->f_y);
 
-    if (action[2] > 0.2f)
+    if (is_action_shoot(action[2]))
         tank_shoot(tank);
 
-    get_reward(state_ctx, tank, reward);
+    get_reward(state_ctx, tank, reward, action);
 
     tg_obj_process(obj);
 }
@@ -354,7 +381,7 @@ void draw_tg_ai_status_tank(tg_state* state_ctx, tank_ctx* tank)
 {
     float reward[REWARD_SIZE];
 
-    get_reward(state_ctx, tank, reward);
+    get_reward(state_ctx, tank, reward, NULL);
 
     tg_draw_text(0, "Episode  : %d -> Fx=%.2f  Fy=%.2f", state_ctx->ai_ctx.episode, tank->tg_body.f_x, tank->tg_body.f_y);
     tg_draw_text(1, "Position : X=%-.3f  Y=%-.3f", tank->tg_body.x, tank->tg_body.y);
