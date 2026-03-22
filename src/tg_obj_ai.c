@@ -156,11 +156,11 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* reward, float* actio
             get_screen_limits(&max_x, &max_y);
 
 
-            if ((missle->x + missle->width + 1 >= obj->x) &&
-                (missle->x <= obj->x + obj->width + 1))
+            if ((missle->x + missle->width + 3 >= obj->x) &&
+                (missle->x <= obj->x + obj->width + 3))
             {
-                reward[0] = (x_diff / (float)max_x) - 1.0f;
-                reward[1] = (x_diff / (float)max_x) - 1.0f;
+                reward[0] = 2.0f*(x_diff / (float)max_x) - 1.0f;
+                reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
             }
             else
             {
@@ -207,7 +207,11 @@ float random_target()
 
 float feature_normalize(float val, float min, float max)
 {
-    return (val - min) / (max - min);
+    // Netween -1 and 1
+    return 2.0f*((val - min) / (max - min)) - 1.0f;
+
+    // Between 0 and 1
+    //return (val - min) / (max - min);
 }
 
 // 0 -> x pos
@@ -221,14 +225,17 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
 {
     tg_obj* obj = &tank->tg_body;
 
-    state[0] = feature_normalize(obj->x,    0.0f,   state_ctx->target_x*2);
-    state[1] = feature_normalize(obj->y,    0.0f,   state_ctx->target_y*2);
-    state[2] = feature_normalize(obj->v_x,  -MAX_V, MAX_V);
-    state[3] = feature_normalize(obj->v_y,  -MAX_V, MAX_V);
-    state[4] = feature_normalize(obj->f_x,  -MAX_F, MAX_F);
-    state[5] = feature_normalize(obj->f_y,  -MAX_F, MAX_F);
+    int max_y, max_x;
+    get_screen_limits(&max_x, &max_y);
 
-    state[6] = (float)(tank_projectile_cool_down_ms(tank) / TANK_FIRE_COOL_DOWN_MS);
+    state[0] = feature_normalize(obj->x,    obj->min_x_boundary,    obj->max_x_boundary - obj->width);
+    state[1] = feature_normalize(obj->y,    obj->min_y_boundary,    obj->max_y_boundary - obj->height);
+    state[2] = feature_normalize(obj->v_x,  -MAX_V,                 MAX_V);
+    state[3] = feature_normalize(obj->v_y,  -MAX_V,                 MAX_V);
+    state[4] = feature_normalize(obj->f_x,  -MAX_F,                 MAX_F);
+    state[5] = feature_normalize(obj->f_y,  -MAX_F,                 MAX_F);
+
+    state[6] = (float)tank_projectile_cool_down_ms(tank) / (float)TANK_FIRE_COOL_DOWN_MS;
 
     state[7] = 0.0f;
     state[8] = 0.0f;
@@ -243,9 +250,6 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
 
         if (state_ctx->fire_decay < 0.0f)
             state_ctx->fire_decay = 1.0f;
-
-        int max_y, max_x;
-        get_screen_limits(&max_x, &max_y);
 
         state[7] = state_ctx->fire_decay;
         state[8] = x_diff / (float)max_x;
@@ -430,6 +434,14 @@ void draw_tg_ai_status(tg_ctx* ctx)
     tg_text_reset();
 
     draw_tg_ai_status_tank(&ctx->state[TANK_LOWER_ID], &g_tank_lower);
+
+    float state[STATE_SIZE];
+    get_state(&ctx->state[TANK_LOWER_ID], &g_tank_lower, state);
+
+    tg_draw_text(4, "State    : [");
+    for (int i = 0; i < STATE_SIZE - 1; i++)
+        tg_draw_text(4, "%-.2f, ", state[i]);
+    tg_draw_text(4, "%-.2f]", state[STATE_SIZE - 1]);
 
     tg_text_set_col(0, 40);
     tg_text_set_col(1, 40);
