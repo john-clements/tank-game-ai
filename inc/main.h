@@ -52,6 +52,7 @@ typedef struct tg_ai_ctx
     uint32_t    episode;
 } tg_ai_ctx;
 
+#define TANK_ACTION_CNT 3
 typedef struct tg_state
 {
     // Configurable based on game design
@@ -68,7 +69,7 @@ typedef struct tg_state
     float fire_decay;
 
     // Obj AI processing
-    tg_ai_ctx   ai_ctx;
+    tg_ai_ctx ai_ctx[TANK_ACTION_CNT];
 } tg_state;
 
 #define MAX_OBJ_CNT     4
