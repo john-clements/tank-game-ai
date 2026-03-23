@@ -24,8 +24,9 @@
 #define ACTION_SIZE     3
 #define STEP_CONTROL    0.1f
 
+//#define REWARD_TRAINING_NET
 #define TRAIN_START_EPISODES 0
-#define REWARD_CROSSOVER_EPISODES 15000
+#define REWARD_CROSSOVER_EPISODES 150
 
 #define REWARD_M_SIZE   1
 
@@ -144,6 +145,7 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
     }
 #endif
 
+#ifdef REWARD_TRAINING_NET
     tg_ai_ctx* ai_ctx = &state_ctx->reward_classifier;
 
     if (ai_ctx->step == 0)
@@ -158,7 +160,7 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
     for (int i = 0; i < REWARD_SIZE; i++)
         reward[i] = action_reward[i];
 
-/*
+#else
     tg_obj*     obj             = &tank->tg_body;
     tank_ctx*   opposite_tank   = get_opposite_tank(tank);
     tg_obj*     missle          = &opposite_tank->tg_missle;
@@ -202,7 +204,7 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
         reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
     }
 
-
+/*
     reward[2] = 0;
 
     if (action)
@@ -212,8 +214,9 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
         else if (!is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
             reward[2] = -1;
     }
-    //reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
 */
+    reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
+#endif
 }
 
 void get_reward_m(tg_state* state_ctx, tank_ctx* tank, float* reward)
@@ -411,6 +414,7 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
     proccess_tank_missle(tank);
 
+#ifdef REWARD_TRAINING_NET
     get_reward_m(state_ctx, tank, &reward_m);
 
     if (ai_ctx[0].episode >= REWARD_CROSSOVER_EPISODES)
@@ -422,6 +426,10 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
         for (int i = 0; i < TANK_ACTION_CNT; i++)
             reward[i] = reward_m;
     }
+
+#else
+    get_reward(state_ctx, tank, state, reward, action);
+#endif
 
     get_state(state_ctx, tank, state);
 
@@ -451,6 +459,7 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
     pthread_t reward_th = {0};
 
+#ifdef REWARD_TRAINING_NET
     if (ai_ctx[0].episode >= REWARD_CROSSOVER_EPISODES)
     {
         // Train reward classifier
@@ -469,10 +478,11 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
     }
     else
     {
-        //tank->fired     = 0;
-        //tank->hits      = 0;
-        //tank->damage    = 0;
+        tank->fired     = 0;
+        tank->hits      = 0;
+        tank->damage    = 0;
     }
+#endif
 
     for (int i = 0; i < TANK_ACTION_CNT; i++)
         pthread_join(th[i], NULL);
