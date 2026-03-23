@@ -11,11 +11,11 @@
 
 #define FIXED_SCREEN_SIZE
 
-#define STATUS_LINES        5       // Lines reserved below frame for text
+#define STATUS_LINES        7       // Lines reserved below frame for text
 
 #define FRAME_PERIOD_US     30000   // 33 FPS
 
-#define FAST_RENDER_CNT     40000
+#define FAST_RENDER_CNT     60000
 
 uint64_t g_tg_time_us = 0;
 

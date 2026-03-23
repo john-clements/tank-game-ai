@@ -70,6 +70,7 @@ typedef struct tg_state
 
     // Obj AI processing
     tg_ai_ctx ai_ctx[TANK_ACTION_CNT];
+    tg_ai_ctx reward_classifier;
 } tg_state;
 
 #define MAX_OBJ_CNT     4

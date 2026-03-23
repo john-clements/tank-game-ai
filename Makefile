@@ -7,7 +7,7 @@ OUT_DIR = bin
 ODIR = obj
 SDIR = src
 
-LIBS=-lncurses -lm $(DDPG)/lib/mlpc.a $(DDPG)/lib/ddpgc.a
+LIBS=-lncurses -lm -lpthread $(DDPG)/lib/mlpc.a $(DDPG)/lib/ddpgc.a
 
 #
 # Build for Windows
