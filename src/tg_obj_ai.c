@@ -219,7 +219,7 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
     //reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
 
     if (tank->fired  > 0)
-        reward[2] = (float)tank->hits - ((float)tank->fired - (float)tank->hits);
+        reward[2] = ((float)tank->hits - ((float)tank->fired - (float)tank->hits)) / (float)tank->fired;
 #endif
 }
 
