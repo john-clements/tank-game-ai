@@ -204,9 +204,10 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
         reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
     }
 
-/*
-    reward[2] = 0;
 
+
+    reward[2] = 0;
+/*
     if (action)
     {
         if (is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
@@ -215,7 +216,10 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
             reward[2] = -1;
     }
 */
-    reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
+    //reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
+
+    if (tank->fired  > 0)
+        reward[2] = (float)tank->hits - ((float)tank->fired - (float)tank->hits);
 #endif
 }
 
