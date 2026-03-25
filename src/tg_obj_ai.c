@@ -38,27 +38,28 @@ tank_ctx g_tank_upper = {0};
 
 void init_tg_ai(tg_ctx* ctx)
 {
-    int layers[LAYER_SIZE]                  = {64, 32};
+    int layers[LAYER_SIZE]                  = {128, 64};
+#ifdef REWARD_TRAINING_NET
     int layers_reward_class[LAYER_SIZE]     = {128, 64};
+#endif
 
     for (int i = 0; i < MAX_STATE_CNT; i++)
     {
-        for (int j = 0; j < TANK_ACTION_CNT; j++)
-        {
-            tg_ai_ctx* ai_ctx = &ctx->state[i].ai_ctx[j];
+        tg_ai_ctx* ai_ctx = &ctx->state[i].ai_ctx;
 
-            DDPG* ddpg = ddpg_create(STATE_SIZE, 1, NULL, LAYER_SIZE, layers, LAYER_SIZE, layers, REPLAY_BUF_SIZE, BATCH_SIZE, 1);
+        DDPG* ddpg = ddpg_create(STATE_SIZE, 1, NULL, LAYER_SIZE, layers, LAYER_SIZE, layers, REPLAY_BUF_SIZE, BATCH_SIZE, 1);
 
-            ai_ctx->ddpg = ddpg;
-            ai_ctx->step = 0;
-        }
+        ai_ctx->ddpg = ddpg;
+        ai_ctx->step = 0;
 
+#ifdef REWARD_TRAINING_NET
         tg_ai_ctx* ai_ctx = &ctx->state[i].reward_classifier;
 
         DDPG* ddpg = ddpg_create(STATE_SIZE, REWARD_SIZE, NULL, LAYER_SIZE, layers_reward_class, LAYER_SIZE, layers_reward_class, REPLAY_BUF_SIZE, BATCH_SIZE, REWARD_M_SIZE);
 
         ai_ctx->ddpg = ddpg;
         ai_ctx->step = 0;
+#endif
     }
 
     ctx->state[TANK_LOWER_ID].target_x = ((float)g_tank_lower.tg_body.max_x_boundary - (float)g_tank_lower.tg_body.width) / 2.0f;
@@ -72,10 +73,10 @@ void free_tg_ai(tg_ctx* ctx)
 {
     for (int i = 0; i < MAX_STATE_CNT; i++)
     {
-        for (int j = 0; j < TANK_ACTION_CNT; j++)
-            ddpg_destroy(ctx->state[i].ai_ctx[j].ddpg);
-
+        ddpg_destroy(ctx->state[i].ai_ctx.ddpg);
+#ifdef REWARD_TRAINING_NET
         ddpg_destroy(ctx->state[i].reward_classifier.ddpg);
+#endif
     }
 }
 
@@ -393,16 +394,12 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 {
     float reward[REWARD_SIZE];
     float state[STATE_SIZE];
-    float action[TANK_ACTION_CNT];
 
-    float reward_m = 0.0f;
+    tg_ai_ctx* ai_ctx = &state_ctx->ai_ctx;
 
-    tg_ai_ctx* ai_ctx = &state_ctx->ai_ctx[0];
-
-    if (ai_ctx[0].step == 0)
+    if (ai_ctx->step == 0)
     {
-        for (int i = 0; i < TANK_ACTION_CNT; i++)
-            ddpg_new_episode(ai_ctx[i].ddpg);
+        ddpg_new_episode(ai_ctx->ddpg);
 
 #ifdef INITIAL_STATE_EN
         tank->tg_body.f_x = random_target();
@@ -412,21 +409,18 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
     get_state(state_ctx, tank, state);
 
-    for (int i = 0; i < TANK_ACTION_CNT; i++)
-    {
-        float* action_i = ddpg_action(ai_ctx[i].ddpg, state);
-
-        action[i] = *action_i;
-    }
+    float* action = ddpg_action(ai_ctx->ddpg, state);
 
     state_step(state_ctx, tank, state, action);
 
     proccess_tank_missle(tank);
 
 #ifdef REWARD_TRAINING_NET
+    float reward_m = 0.0f;
+
     get_reward_m(state_ctx, tank, &reward_m);
 
-    if (ai_ctx[0].episode >= REWARD_CROSSOVER_EPISODES)
+    if (ai_ctx->episode >= REWARD_CROSSOVER_EPISODES)
     {
         get_reward(state_ctx, tank, state, reward, action);
     }
@@ -442,34 +436,31 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
     get_state(state_ctx, tank, state);
 
-    pthread_t th[TANK_ACTION_CNT] = {0};
+    pthread_t th = {0};
 
-    for (int i = 0; i < TANK_ACTION_CNT; i++)
+    ai_ctx->step++;
+    if (ai_ctx->step >= EPISODE_LENGTH)
     {
-        ai_ctx[i].step++;
-        if (ai_ctx[i].step >= EPISODE_LENGTH)
-        {
-            ai_ctx[i].step = 0;
-            ai_ctx[i].episode++;
-        }
+        ai_ctx->step = 0;
+        ai_ctx->episode++;
+    }
 
-        if (ai_ctx[i].episode >= TRAIN_START_EPISODES)
-        {
+    if (ai_ctx->episode >= TRAIN_START_EPISODES)
+    {
 #ifdef INITIAL_STATE_EN
-            if (ai_ctx[i].step == 0)
-                ddpg_observe(ai_ctx[i].ddpg, &action[i], &reward[i], state, 1);
-            else
+        if (ai_ctx->step == 0)
+            ddpg_observe(ai_ctx->ddpg, action, reward, state, 1);
+        else
 #endif
-                ddpg_observe(ai_ctx[i].ddpg, &action[i], &reward[i], state, 0);
+            ddpg_observe(ai_ctx->ddpg, action, reward, state, 0);
 
-            th[i] = ddpg_train_parallel(ai_ctx[i].ddpg);
-        }
+        th = ddpg_train_parallel(ai_ctx->ddpg);
     }
 
 #ifdef REWARD_TRAINING_NET
     pthread_t reward_th = {0};
 
-    if (ai_ctx[0].episode >= REWARD_CROSSOVER_EPISODES)
+    if (ai_ctx->episode >= REWARD_CROSSOVER_EPISODES)
     {
         // Train reward classifier
         tg_ai_ctx* rwd_class = &state_ctx->reward_classifier;
@@ -495,8 +486,7 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
     pthread_join(reward_th, NULL);
 #endif
 
-    for (int i = 0; i < TANK_ACTION_CNT; i++)
-        pthread_join(th[i], NULL);
+    pthread_join(th, NULL);
 }
 
 void step_tg_ai(tg_ctx* ctx)
@@ -571,7 +561,7 @@ void draw_tg_ai_status_tank(tg_state* state_ctx, tank_ctx* tank)
 
     get_reward(state_ctx, tank, state, reward, NULL);
 
-    tg_draw_text(0, "Episode  : %d -> Fx=% .2f  Fy=% .2f", state_ctx->ai_ctx[0].episode, tank->tg_body.f_x, tank->tg_body.f_y);
+    tg_draw_text(0, "Episode  : %d -> Fx=% .2f  Fy=% .2f", state_ctx->ai_ctx.episode, tank->tg_body.f_x, tank->tg_body.f_y);
     tg_draw_text(1, "Position : X=% .3f  Y=% .3f", tank->tg_body.x, tank->tg_body.y);
 
     tg_draw_text(2, "Reward   : ");
