@@ -124,10 +124,9 @@ void process_movement_action(float action, float* param)
 
 int is_action_shoot(float action)
 {
-#ifndef CONTINOUS_FIRING
     if (action >= 0.2f)
         return 1;
-#endif
+
     return 0;
 }
 
@@ -202,17 +201,13 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
 
     if (action)
     {
-/*
-        if (is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
-            reward[2] = -fabs(tg_obj_dist_x_center(&tank->tg_body, &opposite_tank->tg_body));
-        else
-            reward[2] = -1;
-*/
-        float x_diff = fabs(tg_obj_dist_x_center(&tank->tg_body, missle));
+        tg_obj* obj_opposite = &opposite_tank->tg_body;
+
+        float x_diff = fabs(tg_obj_dist_x_center(obj, obj_opposite));
 
         if ((tank_projectile_cool_down_ms(tank) == 0) &&
-            (opposite_tank->tg_body.x + opposite_tank->tg_body.width >= obj->x) &&
-            (opposite_tank->tg_body.x <= obj->x + obj->width))
+            (obj_opposite->x + obj_opposite->width >= obj->x) &&
+            (obj_opposite->x <= obj->x + obj->width))
         {
             reward[2] = action[2];
         }
@@ -246,12 +241,7 @@ void get_reward_m(tg_state* state_ctx, tank_ctx* tank, float* reward)
 void proccess_tank_missle(tank_ctx* tank)
 {
     if (!tank->tg_missle.on)
-    {
-#ifdef CONTINOUS_FIRING
-        if (!missle_check_shoot(tank))
-#endif
-            return;
-    }
+        return;
 
     if (tg_obj_process(&tank->tg_missle))
     {
@@ -280,7 +270,9 @@ void state_step(tg_state* state_ctx, tank_ctx* tank, float* state, float* action
     process_movement_action(action[0], &obj->f_x);
     process_movement_action(action[1], &obj->f_y);
 
+#ifndef CONTINOUS_FIRING
     if (is_action_shoot(action[2]))
+#endif
         tank_shoot(tank);
 
     tg_obj_process(obj);
