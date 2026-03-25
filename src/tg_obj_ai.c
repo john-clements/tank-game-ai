@@ -207,15 +207,15 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
 
 
     reward[2] = 0;
-/*
+
     if (action)
     {
         if (is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
-            reward[2] = 0;
-        else if (!is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
+            reward[2] = -fabs(tg_obj_dist_x_center(&tank->tg_body, &opposite_tank->tg_body));
+        else
             reward[2] = -1;
     }
-*/
+
     //reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
 
 /*
@@ -466,9 +466,9 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
         }
     }
 
+#ifdef REWARD_TRAINING_NET
     pthread_t reward_th = {0};
 
-#ifdef REWARD_TRAINING_NET
     if (ai_ctx[0].episode >= REWARD_CROSSOVER_EPISODES)
     {
         // Train reward classifier
@@ -491,11 +491,12 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
         tank->hits      = 0;
         tank->damage    = 0;
     }
+
+    pthread_join(reward_th, NULL);
 #endif
 
     for (int i = 0; i < TANK_ACTION_CNT; i++)
         pthread_join(th[i], NULL);
-    pthread_join(reward_th, NULL);
 }
 
 void step_tg_ai(tg_ctx* ctx)
