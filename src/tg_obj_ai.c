@@ -217,7 +217,7 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
             reward[2] = action[2];
         }
         else
-            reward[2] = -action[2];
+            reward[2] = -action[2]/2 - .5;;
     }
 
     //reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
