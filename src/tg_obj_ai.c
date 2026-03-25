@@ -36,6 +36,9 @@
 tank_ctx g_tank_lower = {0};
 tank_ctx g_tank_upper = {0};
 
+pthread_mutex_t g_lock_lower;
+pthread_mutex_t g_lock_upper;
+
 void init_tg_ai(tg_ctx* ctx)
 {
     int layers[LAYER_SIZE]                  = {128, 64};
@@ -67,6 +70,9 @@ void init_tg_ai(tg_ctx* ctx)
 
     ctx->state[TANK_UPPER_ID].target_x = ((float)g_tank_upper.tg_body.max_x_boundary - (float)g_tank_upper.tg_body.width) / 2.0f;
     ctx->state[TANK_UPPER_ID].target_y = g_tank_upper.tg_body.y;
+
+    pthread_mutex_init(&g_lock_lower, NULL);
+    pthread_mutex_init(&g_lock_upper, NULL);
 }
 
 void free_tg_ai(tg_ctx* ctx)
@@ -78,6 +84,9 @@ void free_tg_ai(tg_ctx* ctx)
         ddpg_destroy(ctx->state[i].reward_classifier.ddpg);
 #endif
     }
+
+    pthread_mutex_destroy(&g_lock_lower);
+    pthread_mutex_destroy(&g_lock_upper);
 }
 
 #define ACTION_UP   0
@@ -166,46 +175,28 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
     tank_ctx*   opposite_tank   = get_opposite_tank(tank);
     tg_obj*     missle          = &opposite_tank->tg_missle;
 
+    reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
+    reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
+
     if (missle->on)
     {
-        if (((missle->v_y > 0) && (missle->y > obj->y + obj->height)) ||
-            ((missle->v_y < 0) && (missle->y + missle->height < obj->y)))
+        if (!(((missle->v_y > 0) && (missle->y > obj->y + obj->height)) ||
+            ((missle->v_y < 0) && (missle->y + missle->height < obj->y))))
         {
-            reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
-            reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
-        }
-        else
-        {
-            float x_diff = fabs(tg_obj_dist_x_center(&tank->tg_body, missle));
-            float y_diff = fabs(tg_obj_dist_y_center(&tank->tg_body, missle));
-
-            int max_y, max_x;
-            get_screen_limits(&max_x, &max_y);
-
-
             if ((missle->x + missle->width + 3 >= obj->x) &&
                 (missle->x <= obj->x + obj->width + 3))
             {
-                reward[0] = 2.0f*(x_diff / (float)max_x) - 1.0f;
-                reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
-            }
-            else
-            {
-                //float max_diag  = sqrt(max_x*max_x + max_y*max_y);
-                //float dist_diag = sqrt(x_diff*x_diff + y_diff*y_diff);
+                float x_diff = fabs(tg_obj_dist_x_center(&tank->tg_body, missle));
+                float y_diff = fabs(tg_obj_dist_y_center(&tank->tg_body, missle));
 
-                reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
+                int max_y, max_x;
+                get_screen_limits(&max_x, &max_y);
+
+                reward[0] = 2.0f*(x_diff / (float)max_x) - 1.0f;
                 reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
             }
         }
     }
-    else
-    {
-        reward[0] = -fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
-        reward[1] = -fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
-    }
-
-
 
     reward[2] = 0;
 
@@ -217,8 +208,14 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
         else
             reward[2] = -1;
 */
-        if (tank_projectile_cool_down_ms(tank) == 0)
+        float x_diff = fabs(tg_obj_dist_x_center(&tank->tg_body, missle));
+
+        if ((tank_projectile_cool_down_ms(tank) == 0) &&
+            (opposite_tank->tg_body.x + opposite_tank->tg_body.width >= obj->x) &&
+            (opposite_tank->tg_body.x <= obj->x + obj->width))
+        {
             reward[2] = action[2];
+        }
         else
             reward[2] = -action[2];
     }
@@ -246,6 +243,36 @@ void get_reward_m(tg_state* state_ctx, tank_ctx* tank, float* reward)
     reward[0] = reward[0] / 3.0f;
 }
 
+void proccess_tank_missle(tank_ctx* tank)
+{
+    if (!tank->tg_missle.on)
+    {
+#ifdef CONTINOUS_FIRING
+        if (!missle_check_shoot(tank))
+#endif
+            return;
+    }
+
+    if (tg_obj_process(&tank->tg_missle))
+    {
+        // Collision
+        tank->tg_missle.on = 0;
+    }
+
+    if (tank->tg_missle.on)
+    {
+        tank_ctx* tank_opposite = get_opposite_tank(tank);
+
+        if (tank_missle_collision(tank_opposite, &tank->tg_missle))
+        {
+            // Tank collision
+            tank->tg_missle.on = 0;
+            tank->hits++;
+            tank_opposite->damage++;
+        }
+    }
+}
+
 void state_step(tg_state* state_ctx, tank_ctx* tank, float* state, float* action)
 {
     tg_obj* obj = &tank->tg_body;
@@ -257,6 +284,8 @@ void state_step(tg_state* state_ctx, tank_ctx* tank, float* state, float* action
         tank_shoot(tank);
 
     tg_obj_process(obj);
+
+    proccess_tank_missle(tank);
 }
 
 float random_target()
@@ -346,36 +375,6 @@ int missle_check_shoot(tank_ctx* tank)
     return 0;
 }
 
-void proccess_tank_missle(tank_ctx* tank)
-{
-    if (!tank->tg_missle.on)
-    {
-#ifdef CONTINOUS_FIRING
-        if (!missle_check_shoot(tank))
-#endif
-            return;
-    }
-
-    if (tg_obj_process(&tank->tg_missle))
-    {
-        // Collision
-        tank->tg_missle.on = 0;
-    }
-
-    if (tank->tg_missle.on)
-    {
-        tank_ctx* tank_opposite = get_opposite_tank(tank);
-
-        if (tank_missle_collision(tank_opposite, &tank->tg_missle))
-        {
-            // Tank collision
-            tank->tg_missle.on = 0;
-            tank->hits++;
-            tank_opposite->damage++;
-        }
-    }
-}
-
 void* ddpg_train_thread(void* arg)
 {
     DDPG* ddpg = (DDPG*)arg;
@@ -419,8 +418,6 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
     state_step(state_ctx, tank, state, action);
 
-    proccess_tank_missle(tank);
-
 #ifdef REWARD_TRAINING_NET
     float reward_m = 0.0f;
 
@@ -442,6 +439,17 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
     for (int i = 0; i < TANK_ACTION_CNT; i++)
         state_ctx->reward[i] = reward[i];
+
+    if (tank->id == TANK_LOWER_ID)
+    {
+        pthread_mutex_unlock(&g_lock_lower);
+        pthread_mutex_lock(&g_lock_upper);
+    }
+    else if (tank->id == TANK_UPPER_ID)
+    {
+        pthread_mutex_unlock(&g_lock_upper);
+        pthread_mutex_lock(&g_lock_lower);
+    }
 
     get_state(state_ctx, tank, state);
 
@@ -496,16 +504,62 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 #endif
 
     pthread_join(th, NULL);
+
+    if (tank->id == TANK_LOWER_ID)
+    {
+        pthread_mutex_unlock(&g_lock_upper);
+    }
+    else if (tank->id == TANK_UPPER_ID)
+    {
+        pthread_mutex_unlock(&g_lock_lower);
+    }
+}
+
+typedef struct tank_step_ctx
+{
+    tg_state* state_ctx;
+    tank_ctx* tank;
+} tank_step_ctx;
+
+void* step_tg_ai_tank_thread(void* arg)
+{
+    tank_step_ctx* step_ctx = (tank_step_ctx*)arg;
+
+    step_tg_ai_tank(step_ctx->state_ctx, step_ctx->tank);
+
+    return NULL;
+}
+
+pthread_t step_tg_ai_tank_parallel(tank_step_ctx* step_ctx)
+{
+    pthread_t th;
+
+    pthread_create(&th, NULL, step_tg_ai_tank_thread, (void*)step_ctx);
+
+    return th;
 }
 
 void step_tg_ai(tg_ctx* ctx)
 {
-    step_tg_ai_tank(&ctx->state[TANK_LOWER_ID], &g_tank_lower);
+    pthread_mutex_lock(&g_lock_lower);
+    pthread_mutex_lock(&g_lock_upper);
+
+    tank_step_ctx step_ctx_lower = {&ctx->state[TANK_LOWER_ID], &g_tank_lower};
+
+    pthread_t th_lower = step_tg_ai_tank_parallel(&step_ctx_lower);
 #ifdef ML_TOP_EN
-    step_tg_ai_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper);
+    tank_step_ctx step_ctx_upper = {&ctx->state[TANK_UPPER_ID], &g_tank_upper};
+
+    pthread_t th_upper = step_tg_ai_tank_parallel(&step_ctx_upper);
 #else
     missle_check_shoot(&g_tank_upper);
     proccess_tank_missle(&g_tank_upper);
+    pthread_mutex_unlock(&g_lock_upper);
+#endif
+
+    pthread_join(th_lower, NULL);
+#ifdef ML_TOP_EN
+    pthread_join(th_upper, NULL);
 #endif
 }
 
