@@ -68,6 +68,8 @@ typedef struct tg_state
     // State time context
     float fire_decay;
 
+    float reward[TANK_ACTION_CNT];
+
     // Obj AI processing
     tg_ai_ctx ai_ctx;
     tg_ai_ctx reward_classifier;

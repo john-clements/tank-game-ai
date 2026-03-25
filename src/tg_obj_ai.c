@@ -19,9 +19,9 @@
 #define LAYER_SIZE      2
 #define REPLAY_BUF_SIZE 20000
 #define BATCH_SIZE      64
-#define REWARD_SIZE     3
+#define REWARD_SIZE     TANK_ACTION_CNT
 #define STATE_SIZE      10
-#define ACTION_SIZE     3
+#define ACTION_SIZE     TANK_ACTION_CNT
 #define STEP_CONTROL    0.1f
 
 //#define REWARD_TRAINING_NET
@@ -47,7 +47,7 @@ void init_tg_ai(tg_ctx* ctx)
     {
         tg_ai_ctx* ai_ctx = &ctx->state[i].ai_ctx;
 
-        DDPG* ddpg = ddpg_create(STATE_SIZE, 1, NULL, LAYER_SIZE, layers, LAYER_SIZE, layers, REPLAY_BUF_SIZE, BATCH_SIZE, 1);
+        DDPG* ddpg = ddpg_create(STATE_SIZE, ACTION_SIZE, NULL, LAYER_SIZE, layers, LAYER_SIZE, layers, REPLAY_BUF_SIZE, BATCH_SIZE, REWARD_SIZE);
 
         ai_ctx->ddpg = ddpg;
         ai_ctx->step = 0;
@@ -211,10 +211,16 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
 
     if (action)
     {
+/*
         if (is_action_shoot(action[2]) && (tank_projectile_cool_down_ms(tank) == 0))
             reward[2] = -fabs(tg_obj_dist_x_center(&tank->tg_body, &opposite_tank->tg_body));
         else
             reward[2] = -1;
+*/
+        if (tank_projectile_cool_down_ms(tank) == 0)
+            reward[2] = action[2];
+        else
+            reward[2] = -action[2];
     }
 
     //reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
@@ -434,6 +440,9 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
     get_reward(state_ctx, tank, state, reward, action);
 #endif
 
+    for (int i = 0; i < TANK_ACTION_CNT; i++)
+        state_ctx->reward[i] = reward[i];
+
     get_state(state_ctx, tank, state);
 
     pthread_t th = {0};
@@ -554,18 +563,15 @@ void draw_tg_vector(int line, float* vector, int vector_size)
 
 void draw_tg_ai_status_tank(tg_state* state_ctx, tank_ctx* tank)
 {
-    float reward[REWARD_SIZE];
     float state[STATE_SIZE] = {0};;
 
     get_state(state_ctx, tank, state);
-
-    get_reward(state_ctx, tank, state, reward, NULL);
 
     tg_draw_text(0, "Episode  : %d -> Fx=% .2f  Fy=% .2f", state_ctx->ai_ctx.episode, tank->tg_body.f_x, tank->tg_body.f_y);
     tg_draw_text(1, "Position : X=% .3f  Y=% .3f", tank->tg_body.x, tank->tg_body.y);
 
     tg_draw_text(2, "Reward   : ");
-    draw_tg_vector(2, reward, REWARD_SIZE);
+    draw_tg_vector(2, state_ctx->reward, REWARD_SIZE);
 
     tg_draw_text(3, "Wins     : %d", tank->hits);
 
