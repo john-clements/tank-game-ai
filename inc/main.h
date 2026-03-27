@@ -52,7 +52,7 @@ typedef struct tg_ai_ctx
     uint32_t    episode;
 } tg_ai_ctx;
 
-#define TANK_ACTION_CNT 3
+#define TANK_ACTION_CNT 2
 typedef struct tg_state
 {
     // Configurable based on game design
