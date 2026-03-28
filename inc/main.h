@@ -53,6 +53,9 @@ typedef struct tg_ai_ctx
 } tg_ai_ctx;
 
 #define TANK_ACTION_CNT 2
+#define STATE_SIZE      10
+#define REWARD_SIZE     TANK_ACTION_CNT
+#define ACTION_SIZE     TANK_ACTION_CNT
 typedef struct tg_state
 {
     // Configurable based on game design
@@ -69,6 +72,7 @@ typedef struct tg_state
     float fire_decay;
 
     float reward[TANK_ACTION_CNT];
+    float state[STATE_SIZE];
 
     // Obj AI processing
     tg_ai_ctx ai_ctx;
