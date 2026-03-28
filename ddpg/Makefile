@@ -10,7 +10,6 @@ INCLUDE_DIR := -I./src/mlpc -I./src/ddpgc -I/opt/rocm-6.4.4/include
 
 MLPC_SRCS := \
 	mlp.c \
-	mlp_multi.c \
 	matrix.c \
 	matrix_cl.c \
 	activation.c \

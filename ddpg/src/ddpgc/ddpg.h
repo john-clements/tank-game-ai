@@ -141,12 +141,6 @@ typedef struct DDPG
     int lastStateValid;
 
     int rewardSize;
-
-    int is_multi_head;
-
-    MLP_MULTI*  actor_multi;
-    MLP_MULTI*  actor_target_multi;
-    Adam**      actor_multi_adam;
 } DDPG;
 
 /**
@@ -189,21 +183,6 @@ DDPG *ddpg_create(
     float *noise,
     int actorDepth,
     int *actorLayers,
-    int criticDepth,
-    int *criticLayers,
-    int memorySize,
-    int batchSize,
-    int rewardSize);
-
-DDPG *ddpg_multi_head_create(
-    int stateSize,
-    int actionSize, // Actions per head
-    float *noise,
-    int actorDepth,
-    int *actorLayers,
-    int ActionSetCnt,
-    int headDepth,
-    int* headLayers,
     int criticDepth,
     int *criticLayers,
     int memorySize,
