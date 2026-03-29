@@ -5,7 +5,6 @@
 #include "ncurses.h"
 #include "unistd.h"
 #include "math.h"
-#include "pthread.h"
 
 #include "tank.h"
 
@@ -21,9 +20,9 @@
 #define BATCH_SIZE      64
 #define STEP_CONTROL    0.1f
 
-#define REWARD_TRAINING_NET
+//#define REWARD_TRAINING_NET
 #define TRAIN_START_EPISODES 0
-#define REWARD_CROSSOVER_EPISODES 600
+#define REWARD_CROSSOVER_EPISODES 2000
 
 #define REWARD_M_SIZE   1
 
@@ -76,6 +75,8 @@ void free_tg_ai(tg_ctx* ctx)
 {
     for (int i = 0; i < MAX_STATE_CNT; i++)
     {
+        pthread_join(ctx->state[i].reward_classifier.th, NULL);
+
         ddpg_destroy(ctx->state[i].ai_ctx.ddpg);
 #ifdef REWARD_TRAINING_NET
         ddpg_destroy(ctx->state[i].reward_classifier.ddpg);
@@ -154,6 +155,8 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
 #ifdef REWARD_TRAINING_NET
     tg_ai_ctx* ai_ctx = &state_ctx->reward_classifier;
 
+    pthread_join(ai_ctx->th, NULL);
+
     float state_m[STATE_SIZE + ACTION_SIZE] = {0};
 
     for (int i = 0; i < STATE_SIZE; i++)
@@ -195,6 +198,7 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
         }
     }
 
+#ifndef CONTINOUS_FIRING
     reward[2] = 0;
 
     if (action)
@@ -212,6 +216,7 @@ void get_reward(tg_state* state_ctx, tank_ctx* tank, float* state, float* reward
         else
             reward[2] = -action[2]/2 - .5;;
     }
+#endif
 
     //reward[2] = ((float)tank->hits - 1.1*(float)tank->damage) / 100.0f;
 
@@ -232,8 +237,8 @@ void get_reward_m(tg_state* state_ctx, tank_ctx* tank, float* reward)
     tg_obj*     missle          = &opposite_tank->tg_missle;
 
     reward[0] = 0.0f;
-    reward[0] = reward[0] - fabs(obj->x - state_ctx->target_x) / state_ctx->target_x;
-    reward[0] = reward[0] - fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
+    reward[0] = reward[0] - (fabs(obj->x - state_ctx->target_x) / state_ctx->target_x);
+    reward[0] = reward[0] - (fabs(obj->y - state_ctx->target_y) / state_ctx->target_y);
 
     if (missle->on)
     {
@@ -250,14 +255,13 @@ void get_reward_m(tg_state* state_ctx, tank_ctx* tank, float* reward)
                 get_screen_limits(&max_x, &max_y);
 
                 reward[0] = 0.0f;
-                reward[0] = reward[0] + 2.0f*(x_diff / (float)max_x) - 1.0f;
-                reward[0] = reward[0] - fabs(obj->y - state_ctx->target_y) / state_ctx->target_y;
+                reward[0] = reward[0] + (x_diff / (float)max_x) - 1.0f;
+                reward[0] = reward[0] - (fabs(obj->y - state_ctx->target_y) / state_ctx->target_y);
             }
         }
     }
 
     reward[0] = reward[0] / 2.0f;   // Per reward
-    reward[0] = reward[0] / 2.0f;   // Half to give space on reward output training
 }
 
 void proccess_tank_missle(tank_ctx* tank)
@@ -267,7 +271,7 @@ void proccess_tank_missle(tank_ctx* tank)
 
     if (tg_obj_process(&tank->tg_missle))
     {
-        // Collision
+        // Wall collision
         tank->tg_missle.on = 0;
     }
 
@@ -373,9 +377,6 @@ void get_state(tg_state* state_ctx, tank_ctx* tank, float* state)
     }
     else
         state_ctx->fire_decay = -1.0f;
-
-    for (int i = 0; i < STATE_SIZE; i++)
-        state_ctx->state[i] = state[i];
 }
 
 int missle_check_shoot(tank_ctx* tank)
@@ -422,10 +423,36 @@ void ai_ctx_step_inc(tg_ai_ctx* ai_ctx)
     }
 }
 
+void tank_lock_wait_switch(tank_ctx* tank)
+{
+    if (tank->id == TANK_LOWER_ID)
+    {
+        pthread_mutex_unlock(&g_lock_lower);
+        pthread_mutex_lock(&g_lock_upper);
+    }
+    else if (tank->id == TANK_UPPER_ID)
+    {
+        pthread_mutex_unlock(&g_lock_upper);
+        pthread_mutex_lock(&g_lock_lower);
+    }
+}
+
+void tank_lock_unlock(tank_ctx* tank)
+{
+    if (tank->id == TANK_LOWER_ID)
+    {
+        pthread_mutex_unlock(&g_lock_upper);
+    }
+    else if (tank->id == TANK_UPPER_ID)
+    {
+        pthread_mutex_unlock(&g_lock_lower);
+    }
+}
+
 void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 {
     float reward[REWARD_SIZE];
-    float state[STATE_SIZE];
+    //float state[STATE_SIZE];
 
     tg_ai_ctx*  ai_ctx  = &state_ctx->ai_ctx;
     tg_obj*     obj     = &tank->tg_body;
@@ -444,45 +471,43 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
     }
 
     //get_state(state_ctx, tank, state);
-    for (int i = 0; i < STATE_SIZE; i++)
-        state[i] = state_ctx->state[i];
-    
+    float* state    = &state_ctx->state[0];
+
+#ifdef REWARD_TRAINING_NET
+    float* action   = &state_ctx->action[0];
+#else
     float* action = ddpg_action(ai_ctx->ddpg, state);
+#endif
 
     state_step(state_ctx, tank, action);
 
-    if (tank->id == TANK_LOWER_ID)
-    {
-        pthread_mutex_unlock(&g_lock_lower);
-        pthread_mutex_lock(&g_lock_upper);
-    }
-    else if (tank->id == TANK_UPPER_ID)
-    {
-        pthread_mutex_unlock(&g_lock_upper);
-        pthread_mutex_lock(&g_lock_lower);
-    }
+    tank_lock_wait_switch(tank);
 
 #ifdef REWARD_TRAINING_NET
-    float reward_m = 0.0f;
+    float reward_m                      = 0.0f;
+    float reward_m_action[REWARD_SIZE]  = {0};
 
     get_reward_m(state_ctx, tank, &reward_m);
+    get_reward(state_ctx, tank, state, reward, action);
 
-    if (ai_ctx->episode >= REWARD_CROSSOVER_EPISODES)
+    for (int i = 0; i < REWARD_SIZE; i++)
+        reward_m_action[i] = reward[i];
+
+    if (ai_ctx->episode < REWARD_CROSSOVER_EPISODES)
     {
-        get_reward(state_ctx, tank, state, reward, action);
-    }
-    else
-    {
-        for (int i = 0; i < TANK_ACTION_CNT; i++)
+        for (int i = 0; i < REWARD_SIZE; i++)
             reward[i] = reward_m;
     }
 
+    for (int i = 0; i < REWARD_SIZE; i++)
+        state_ctx->reward[i] = reward_m_action[i];
+
 #else
     get_reward(state_ctx, tank, state, reward, action);
-#endif
 
-    for (int i = 0; i < TANK_ACTION_CNT; i++)
+    for (int i = 0; i < REWARD_SIZE; i++)
         state_ctx->reward[i] = reward[i];
+#endif
 
     get_state(state_ctx, tank, state);
 
@@ -505,8 +530,6 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
     pthread_join(th, NULL);
 
 #ifdef REWARD_TRAINING_NET
-    pthread_t reward_th = {0};
-
     tg_ai_ctx* rwd_class = &state_ctx->reward_classifier;
 
     if (rwd_class->step == 0)
@@ -516,6 +539,9 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
     ai_ctx_step_inc(rwd_class);
 
     action = ddpg_action(ai_ctx->ddpg, state);
+
+    for (int i = 0; i < ACTION_SIZE; i++)
+        state_ctx->action[i] = action[i];
 
     float state_m[STATE_SIZE + ACTION_SIZE] = {0};
 
@@ -527,24 +553,15 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
 #ifdef INITIAL_STATE_EN
         if (rwd_class->step == 0)
-            ddpg_observe(rwd_class->ddpg, reward, &reward_m, state_m, 1);
+            ddpg_observe(rwd_class->ddpg, reward_m_action, &reward_m, state_m, 1);
         else
 #endif
-            ddpg_observe(rwd_class->ddpg, reward, &reward_m, state_m, 0);
+            ddpg_observe(rwd_class->ddpg, reward_m_action, &reward_m, state_m, 0);
 
-    reward_th = ddpg_train_parallel(rwd_class->ddpg);
-
-    pthread_join(reward_th, NULL);
+    rwd_class->th = ddpg_train_parallel(rwd_class->ddpg);
 #endif
 
-    if (tank->id == TANK_LOWER_ID)
-    {
-        pthread_mutex_unlock(&g_lock_upper);
-    }
-    else if (tank->id == TANK_UPPER_ID)
-    {
-        pthread_mutex_unlock(&g_lock_lower);
-    }
+    tank_lock_unlock(tank);
 }
 
 typedef struct tank_step_ctx
@@ -649,20 +666,21 @@ void draw_tg_vector(int line, float* vector, int vector_size)
 
 void draw_tg_ai_status_tank(tg_state* state_ctx, tank_ctx* tank)
 {
-    tg_draw_text(0, "Episode  : %d -> Fx=% .2f  Fy=% .2f", state_ctx->ai_ctx.episode, tank->tg_body.f_x, tank->tg_body.f_y);
-    tg_draw_text(1, "Position : X=% .3f  Y=% .3f", tank->tg_body.x, tank->tg_body.y);
+    tg_draw_text(0, "Episode  : %d -> Fx =% .2f  Fy =% .2f", state_ctx->ai_ctx.episode, tank->tg_body.f_x, tank->tg_body.f_y);
+    tg_draw_text(1, "Position : X =% .3f  Y =% .3f", tank->tg_body.x, tank->tg_body.y);
+    tg_draw_text(2, "Velocity : X =% .3f  Y =% .3f", tank->tg_body.v_x, tank->tg_body.v_y);
 
-    tg_draw_text(2, "Reward   : ");
-    draw_tg_vector(2, state_ctx->reward, REWARD_SIZE);
+    tg_draw_text(3, "Reward   : ");
+    draw_tg_vector(3, state_ctx->reward, REWARD_SIZE);
 
-    tg_draw_text(3, "Wins     : %d", tank->hits);
+    tg_draw_text(4, "Wins     : %d", tank->hits);
 
     float reward_m[REWARD_M_SIZE];
 
     get_reward_m(state_ctx, tank, reward_m);
 
-    tg_draw_text(4, "Reward M : ");
-    draw_tg_vector(4, reward_m, REWARD_M_SIZE);
+    tg_draw_text(5, "Reward M : ");
+    draw_tg_vector(5, reward_m, REWARD_M_SIZE);
 }
 
 void draw_tg_ai_status(tg_ctx* ctx)
@@ -676,17 +694,18 @@ void draw_tg_ai_status(tg_ctx* ctx)
     tg_text_set_col(2, 40);
     tg_text_set_col(3, 40);
     tg_text_set_col(4, 40);
+    tg_text_set_col(5, 40);
 
     draw_tg_ai_status_tank(&ctx->state[TANK_UPPER_ID], &g_tank_upper);
 
     float* state;
     state = &ctx->state[TANK_UPPER_ID].state[0];
 
-    tg_draw_text(5, "State U  : ");
-    draw_tg_vector(5, state, STATE_SIZE);
+    tg_draw_text(6, "State U  : ");
+    draw_tg_vector(6, state, STATE_SIZE);
 
     state = &ctx->state[TANK_LOWER_ID].state[0];
 
-    tg_draw_text(6, "State D  : ");
-    draw_tg_vector(6, state, STATE_SIZE);
+    tg_draw_text(7, "State D  : ");
+    draw_tg_vector(7, state, STATE_SIZE);
 }

@@ -2,10 +2,11 @@
 #define __MAIN_H__
 
 #include "stdint.h"
+#include "pthread.h"
 
 #include "ddpg.h"
 
-#define MAX_V 1.2
+#define MAX_V 1.0
 #define MAX_F 0.5
 
 typedef struct tg_obj
@@ -50,6 +51,7 @@ typedef struct tg_ai_ctx
     DDPG*       ddpg;
     uint32_t    step;
     uint32_t    episode;
+    pthread_t   th;
 } tg_ai_ctx;
 
 #define TANK_ACTION_CNT 2
@@ -71,8 +73,9 @@ typedef struct tg_state
     // State time context
     float fire_decay;
 
-    float reward[TANK_ACTION_CNT];
+    float reward[REWARD_SIZE];
     float state[STATE_SIZE];
+    float action[ACTION_SIZE];
 
     // Obj AI processing
     tg_ai_ctx ai_ctx;

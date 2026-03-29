@@ -11,7 +11,7 @@
 
 #define FIXED_SCREEN_SIZE
 
-#define STATUS_LINES        7       // Lines reserved below frame for text
+#define STATUS_LINES        8       // Lines reserved below frame for text
 
 #define FRAME_PERIOD_US     30000   // 33 FPS
 
