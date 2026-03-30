@@ -77,9 +77,14 @@ typedef struct tg_state
     float state[STATE_SIZE];
     float action[ACTION_SIZE];
 
+    float shoot_state[STATE_SIZE];
+    float shoot_reward;
+    float shoot_action;
+
     // Obj AI processing
     tg_ai_ctx ai_ctx;
     tg_ai_ctx reward_classifier;
+    tg_ai_ctx ai_shoot;
 } tg_state;
 
 #define MAX_OBJ_CNT     4
