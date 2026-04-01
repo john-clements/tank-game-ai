@@ -10,9 +10,11 @@
 
 #define ACTION_MAGNITUDE_EN
 #define ML_TOP_EN
-//#define CONTINOUS_FIRING
 
-#define INITIAL_STATE_EN
+#define CONTINOUS_FIRING
+#define RANDOM_FIRING
+
+//#define INITIAL_STATE_EN
 
 #define EPISODE_LENGTH      400
 #define SHORT_EPISODE_CNT   0//500
@@ -25,7 +27,7 @@
 #define TRAIN_START_EPISODES 0
 #define REWARD_CROSSOVER_EPISODES 2000
 
-#define SHOOT_NET_EN
+//#define SHOOT_NET_EN
 
 #define REWARD_M_SIZE   1
 
@@ -509,9 +511,7 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 
     float* shoot_action = ddpg_action(ai_ctx->ddpg, state);
 
-#ifndef CONTINOUS_FIRING
     if (is_action_shoot(*shoot_action))
-#endif
         tank_shoot(tank);
 
     if (!tank->tg_missle.on)
@@ -526,8 +526,12 @@ void step_tg_ai_tank(tg_state* state_ctx, tank_ctx* tank)
 #ifndef CONTINOUS_FIRING
     if (is_action_shoot(action[2]))
 #endif
-        tank_shoot(tank);
-
+    {
+#ifdef RANDOM_FIRING
+        if (deepc_random_int(0, 20) == 10)
+#endif
+            tank_shoot(tank);
+    }
 #endif
 
     state_step(state_ctx, tank, action);

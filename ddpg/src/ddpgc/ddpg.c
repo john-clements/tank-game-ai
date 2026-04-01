@@ -4,6 +4,9 @@
 
 #include <stdio.h>
 
+#define Q_APPOXIMATION_EN
+#define Q_APPOXIMATION_N    32
+
 void ddpg_init()
 {
     mlp_init();
@@ -41,8 +44,11 @@ DDPG *ddpg_create(
     ddpg->actor = mlp_create(stateSize, actionSize, actorDepth, actorLayers, ACTIVATION_RELU, ACTIVATION_TANH, batchSize);
 
     ddpg->critic = mlp_create(actionSize + stateSize, rewardSize, criticDepth, criticLayers, ACTIVATION_RELU, ACTIVATION_LINEAR, batchSize);
+
+#ifndef Q_APPOXIMATION_EN
     ddpg->actorTarget = mlp_clone(ddpg->actor);
     ddpg->criticTarget = mlp_clone(ddpg->critic);
+#endif
 
     /* Initialize the Adam optimizers. */
     ddpg->actorAdam = adam_create(ddpg->actor);
@@ -81,8 +87,10 @@ void ddpg_destroy(DDPG *ddpg)
 
     mlp_destroy(ddpg->actor);
     mlp_destroy(ddpg->critic);
+#ifndef Q_APPOXIMATION_EN
     mlp_destroy(ddpg->actorTarget);
     mlp_destroy(ddpg->criticTarget);
+#endif
 
     adam_destroy(ddpg->actorAdam);
     adam_destroy(ddpg->criticAdam);
@@ -171,12 +179,31 @@ float *ddpg_action(DDPG *ddpg, float *state)
 void ddpg_train(DDPG *ddpg, float gamma)
 {
     /* If not enough samples in memory, do nothing. */
-    if (ddpg->memoryUsed < ddpg->batchSize)
+#ifdef Q_APPOXIMATION_EN
+    if (ddpg->memoryUsed < Q_APPOXIMATION_N + ddpg->batchSize)
         return;
+#else
+   if (ddpg->memoryUsed < ddpg->batchSize)
+        return;
+#endif
 
     /* Select a random batch. */
     for (int i = 0; i < ddpg->batchSize; i++)
+    {
+#ifdef Q_APPOXIMATION_EN
+        ddpg->batchIndices[i] = deepc_random_int(0, ddpg->memoryUsed - 1 - Q_APPOXIMATION_N);
+
+        if (ddpg->memoryUsed >= ddpg->memorySize)
+        {
+            ddpg->batchIndices[i] = ddpg->batchIndices[i] + ddpg->memoryIdx;
+
+            if (ddpg->batchIndices[i] >= ddpg->memorySize)
+                ddpg->batchIndices[i] = ddpg->batchIndices[i] - ddpg->memorySize;
+        }
+#else
         ddpg->batchIndices[i] = deepc_random_int(0, ddpg->memoryUsed - 1);
+#endif
+    }
 
     /* Train the actor. */
     
@@ -229,6 +256,7 @@ void ddpg_train(DDPG *ddpg, float gamma)
 
     criticOutput = mlp_feedforward(ddpg->critic, ddpg->criticInput);
 
+#ifndef Q_APPOXIMATION_EN
     /* Feed the next state batch to the target actor. */
     for (int i = 0; i < ddpg->batchSize; i++)
         ddpg_data_copy(&MATRIX(ddpg->actorInput, i, 0), &MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + ddpg->rewardSize)), ddpg->stateSize);
@@ -243,6 +271,7 @@ void ddpg_train(DDPG *ddpg, float gamma)
     }
 
     Matrix CriticTargetOutput = mlp_feedforward(ddpg->criticTarget, ddpg->criticInput);
+#endif
 
     /* Compute the critic errors using the Bellman equation. */
     for (int i = 0; i < ddpg->batchSize; i++)
@@ -251,12 +280,35 @@ void ddpg_train(DDPG *ddpg, float gamma)
 
         for (int j = 0; j < ddpg->rewardSize; j++)
         {
-            float reward = MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
-
             if (terminal > 0)
                 MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j);
             else
+            {
+#ifdef Q_APPOXIMATION_EN
+                float q_approximate = MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
+                float gamma_exp     = 1;
+
+                for (int k = 1; k < Q_APPOXIMATION_N; k++)
+                {
+                    int batch_index = ddpg->batchIndices[i] + k;
+
+                    if (batch_index >= ddpg->memorySize)
+                        batch_index = batch_index - ddpg->memorySize;
+
+                    float reward_next = MATRIX(ddpg->memory, batch_index, (ddpg->stateSize + ddpg->actionSize + j));
+
+                    gamma_exp = gamma_exp * gamma;
+
+                    q_approximate = q_approximate + gamma_exp * reward_next;
+                }
+
+                MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j) - q_approximate;
+#else
+                float reward = MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
+
                 MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j) - (reward + gamma * MATRIX(CriticTargetOutput, i, j));
+#endif
+            }
         }
     }
 
@@ -269,14 +321,18 @@ void ddpg_train(DDPG *ddpg, float gamma)
 
 void ddpg_update_target_networks(DDPG *ddpg)
 {
+#ifndef Q_APPOXIMATION_EN
     mlp_copy(ddpg->actorTarget, ddpg->actor);
     mlp_copy(ddpg->criticTarget, ddpg->critic);
+#endif
 }
 
 void ddpg_soft_update_target_networks(DDPG *ddpg, float tau)
 {
+#ifndef Q_APPOXIMATION_EN
     mlp_soft_copy(ddpg->actorTarget, ddpg->actor, tau);
     mlp_soft_copy(ddpg->criticTarget, ddpg->critic, tau);
+#endif
 }
 
 void ddpg_new_episode(DDPG *ddpg)
