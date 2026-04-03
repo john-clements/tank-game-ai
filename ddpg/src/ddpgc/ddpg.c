@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 #define Q_APPOXIMATION_EN
-#define Q_APPOXIMATION_N    32
+#define Q_APPOXIMATION_N    64
 
 void ddpg_init()
 {

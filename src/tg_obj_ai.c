@@ -11,12 +11,12 @@
 #define ACTION_MAGNITUDE_EN
 #define ML_TOP_EN
 
-#define CONTINOUS_FIRING
-#define RANDOM_FIRING
+//#define CONTINOUS_FIRING
+//#define RANDOM_FIRING
 
-//#define INITIAL_STATE_EN
+#define INITIAL_STATE_EN
 
-#define EPISODE_LENGTH      400
+#define EPISODE_LENGTH      1000
 #define SHORT_EPISODE_CNT   0//500
 #define LAYER_SIZE          2
 #define REPLAY_BUF_SIZE     20000
@@ -27,7 +27,7 @@
 #define TRAIN_START_EPISODES 0
 #define REWARD_CROSSOVER_EPISODES 2000
 
-//#define SHOOT_NET_EN
+#define SHOOT_NET_EN
 
 #define REWARD_M_SIZE   1
 
@@ -295,7 +295,7 @@ float proccess_tank_missle(tank_ctx* tank)
     {
         // Wall collision
         tank->tg_missle.on = 0;
-        return -0.05f;
+        return 0.0f;//-0.05f;
     }
 
     if (tank->tg_missle.on)
