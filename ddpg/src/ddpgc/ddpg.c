@@ -5,7 +5,8 @@
 #include <stdio.h>
 
 #define Q_APPOXIMATION_EN
-#define Q_APPOXIMATION_N    64
+#define Q_APPOXIMATION_N        64
+#define Q_APPOXIMATION_N_END    64
 
 void ddpg_init()
 {
@@ -69,7 +70,7 @@ DDPG *ddpg_create(
     /* The memory stores the current state, action, reward, next state, and the terminal flag. */
     ddpg->memory = matrix_create(memorySize, actionSize + 2 * stateSize + rewardSize + 1);
     ddpg->memorySize = memorySize;  
-    ddpg->memoryUsed = 0;
+    ddpg->replay_submissions = 0;
     ddpg->memoryIdx = 0;
 
     /* Last observed state. */
@@ -140,8 +141,7 @@ void ddpg_observe(DDPG *ddpg, float *action, float* reward, float *state, int te
 
     /* Increase the record index and memory size. */
     ddpg->memoryIdx = (ddpg->memoryIdx + 1) % ddpg->memorySize;
-    if (ddpg->memoryUsed < ddpg->memorySize)
-        ddpg->memoryUsed++;
+    ddpg->replay_submissions++;
 }
 
 float *ddpg_action(DDPG *ddpg, float *state)
@@ -180,20 +180,30 @@ void ddpg_train(DDPG *ddpg, float gamma)
 {
     /* If not enough samples in memory, do nothing. */
 #ifdef Q_APPOXIMATION_EN
-    if (ddpg->memoryUsed < Q_APPOXIMATION_N + ddpg->batchSize)
+    if (ddpg->replay_submissions < Q_APPOXIMATION_N + ddpg->batchSize)
         return;
 #else
-   if (ddpg->memoryUsed < ddpg->batchSize)
+   if (ddpg->replay_submissions < ddpg->batchSize)
         return;
+#endif
+
+#ifdef Q_APPOXIMATION_EN
+    int q_approximate_len = Q_APPOXIMATION_N;
+    if (ddpg->replay_submissions >= ddpg->memorySize*2)
+        q_approximate_len = Q_APPOXIMATION_N_END;
 #endif
 
     /* Select a random batch. */
     for (int i = 0; i < ddpg->batchSize; i++)
     {
-#ifdef Q_APPOXIMATION_EN
-        ddpg->batchIndices[i] = deepc_random_int(0, ddpg->memoryUsed - 1 - Q_APPOXIMATION_N);
+        int sample_range = ddpg->replay_submissions - 1;
+        if (ddpg->replay_submissions > ddpg->memorySize)
+            sample_range = ddpg->memorySize - 1;
 
-        if (ddpg->memoryUsed >= ddpg->memorySize)
+#ifdef Q_APPOXIMATION_EN
+        ddpg->batchIndices[i] = deepc_random_int(0, sample_range - q_approximate_len);
+
+        if (ddpg->replay_submissions >= ddpg->memorySize)
         {
             ddpg->batchIndices[i] = ddpg->batchIndices[i] + ddpg->memoryIdx;
 
@@ -201,7 +211,7 @@ void ddpg_train(DDPG *ddpg, float gamma)
                 ddpg->batchIndices[i] = ddpg->batchIndices[i] - ddpg->memorySize;
         }
 #else
-        ddpg->batchIndices[i] = deepc_random_int(0, ddpg->memoryUsed - 1);
+        ddpg->batchIndices[i] = deepc_random_int(0, sample_range);
 #endif
     }
 
@@ -288,7 +298,7 @@ void ddpg_train(DDPG *ddpg, float gamma)
                 float q_approximate = MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
                 float gamma_exp     = 1;
 
-                for (int k = 1; k < Q_APPOXIMATION_N; k++)
+                for (int k = 1; k < q_approximate_len; k++)
                 {
                     int batch_index = ddpg->batchIndices[i] + k;
 

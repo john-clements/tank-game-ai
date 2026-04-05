@@ -112,7 +112,7 @@ typedef struct DDPG
     /**
      * The number of records (observations) contained in the memory.
      */
-    int memoryUsed;
+    int replay_submissions;
 
     /**
      * The index of the next observation slot to be written in the memory. If
