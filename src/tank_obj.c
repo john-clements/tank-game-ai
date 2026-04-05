@@ -14,7 +14,7 @@
 #define MISSLE_WIDTH    1
 #define MISSLE_HEIGHT   2
 
-#define MISSLE_VELOCITY 3
+#define MISSLE_VELOCITY 2.0f
 
 uint16_t g_tank_obj_id = 0;
 
@@ -26,6 +26,12 @@ void tank_obj_init(tg_ctx* ctx, tank_ctx* tank, uint16_t color)
     tg_obj_init(&tank->tg_missle,   COLOR_WHITE,    MISSLE_WIDTH,   MISSLE_HEIGHT,  1.0f);
 
     tank->tg_body.on = 1;
+
+    tank->tg_body.max_v_x = MAX_V;
+    tank->tg_body.max_v_y = MAX_V;
+
+    tank->tg_missle.max_v_x = MISSLE_VELOCITY;
+    tank->tg_missle.max_v_y = MISSLE_VELOCITY;
 
     tg_ctx_add_obj(ctx, &tank->tg_body);
     tg_ctx_add_obj(ctx, &tank->tg_missle);

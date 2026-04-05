@@ -6,8 +6,8 @@
 
 #include "ddpg.h"
 
-#define MAX_V 1.0
-#define MAX_F 0.5
+#define MAX_V 1.0f
+#define MAX_F 0.5f
 
 typedef struct tg_obj
 {
@@ -44,6 +44,8 @@ typedef struct tg_obj
     float max_x_boundary;
     float min_y_boundary;
     float max_y_boundary;
+    float max_v_x;
+    float max_v_y;
 } tg_obj;
 
 typedef struct tg_ai_ctx

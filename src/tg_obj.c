@@ -97,15 +97,15 @@ int tg_obj_process(tg_obj* obj)
         collision = 1;
     }
 
-    if (obj->v_y > MAX_V)
-        obj->v_y = MAX_V;
-    else if (obj->v_y < -MAX_V)
-        obj->v_y = -MAX_V;
+    if (obj->v_y > obj->max_v_y)
+        obj->v_y = obj->max_v_y;
+    else if (obj->v_y < -obj->max_v_y)
+        obj->v_y = -obj->max_v_y;
 
-    if (obj->v_x > MAX_V)
-        obj->v_x = MAX_V;
-    else if (obj->v_x < -MAX_V)
-        obj->v_x = -MAX_V;
+    if (obj->v_x > obj->max_v_x)
+        obj->v_x = obj->max_v_x;
+    else if (obj->v_x < -obj->max_v_x)
+        obj->v_x = -obj->max_v_x;
 
     return collision;
 }

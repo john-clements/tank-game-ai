@@ -11,8 +11,8 @@
 #define ACTION_MAGNITUDE_EN
 #define ML_TOP_EN
 
-//#define CONTINOUS_FIRING
-//#define RANDOM_FIRING
+#define CONTINOUS_FIRING
+#define RANDOM_FIRING
 
 #define INITIAL_STATE_EN
 
@@ -27,7 +27,7 @@
 #define TRAIN_START_EPISODES 0
 #define REWARD_CROSSOVER_EPISODES 2000
 
-#define SHOOT_NET_EN
+//#define SHOOT_NET_EN
 
 #define REWARD_M_SIZE   1
 
