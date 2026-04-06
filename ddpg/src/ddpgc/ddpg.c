@@ -79,11 +79,25 @@ DDPG *ddpg_create(
 
     ddpg->rewardSize = rewardSize;
 
+#ifdef CRITIC_TRAIN_BUF_EN
+    ddpg->critic_buf_index      = 0;
+    ddpg->critic_input_size     = stateSize + actionSize;
+    ddpg->critic_output_size    = rewardSize;
+
+    ddpg->critic_target_output  = (float*)malloc(CRITIC_TRAIN_BUF_SIZE * ddpg->batchSize * ddpg->critic_output_size * sizeof(float));
+    ddpg->critic_input          = (float*)malloc(CRITIC_TRAIN_BUF_SIZE * ddpg->batchSize * ddpg->critic_input_size * sizeof(float));
+#endif
+
     return ddpg;
 }
 
 void ddpg_destroy(DDPG *ddpg)
 {
+#ifdef CRITIC_TRAIN_BUF_EN
+    free(ddpg->critic_target_output);
+    free(ddpg->critic_input);
+#endif
+
     free(ddpg->action);
 
     mlp_destroy(ddpg->actor);
@@ -264,7 +278,9 @@ void ddpg_train(DDPG *ddpg, float gamma)
         ddpg_data_copy(&MATRIX(ddpg->criticInput, i, ddpg->actionSize), &MATRIX(ddpg->memory, ddpg->batchIndices[i], 0), ddpg->stateSize);
     }
 
+#ifndef CRITIC_TRAIN_BUF_EN
     criticOutput = mlp_feedforward(ddpg->critic, ddpg->criticInput);
+#endif
 
 #ifndef Q_APPOXIMATION_EN
     /* Feed the next state batch to the target actor. */
@@ -291,7 +307,15 @@ void ddpg_train(DDPG *ddpg, float gamma)
         for (int j = 0; j < ddpg->rewardSize; j++)
         {
             if (terminal > 0)
+            {
+#ifdef CRITIC_TRAIN_BUF_EN
+                int critic_out_buf_offset = ddpg->critic_buf_index * ddpg->batchSize * ddpg->critic_output_size;
+
+                ddpg->critic_target_output[critic_out_buf_offset + i*ddpg->rewardSize + j] = 0;
+#else
                 MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j);
+#endif
+            }
             else
             {
 #ifdef Q_APPOXIMATION_EN
@@ -312,7 +336,14 @@ void ddpg_train(DDPG *ddpg, float gamma)
                     q_approximate = q_approximate + gamma_exp * reward_next;
                 }
 
+#ifdef CRITIC_TRAIN_BUF_EN
+                int critic_out_buf_offset = ddpg->critic_buf_index * ddpg->batchSize * ddpg->critic_output_size;
+
+                ddpg->critic_target_output[critic_out_buf_offset + i*ddpg->rewardSize + j] = q_approximate;
+#else
                 MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j) - q_approximate;
+#endif
+
 #else
                 float reward = MATRIX(ddpg->memory, ddpg->batchIndices[i], (ddpg->stateSize + ddpg->actionSize + j));
 
@@ -322,11 +353,57 @@ void ddpg_train(DDPG *ddpg, float gamma)
         }
     }
 
+#ifdef CRITIC_TRAIN_BUF_EN
+    int critic_in_buf_offset  = ddpg->critic_buf_index * ddpg->batchSize * ddpg->critic_input_size;
+
+    for (int i = 0; i < ddpg->batchSize; i++)
+    {
+        for (int j = 0; j < ddpg->critic_input_size; j++)
+            ddpg->critic_input[critic_in_buf_offset + i*ddpg->critic_input_size + j] = MATRIX(ddpg->criticInput, i, j);
+    }
+
+    ddpg->critic_buf_index++;
+
+    if (ddpg->critic_buf_index < CRITIC_TRAIN_BUF_SIZE)
+        return;
+
+    // Perform train sequence
+
+    ddpg->critic_buf_index = 0;
+
+    for (int train_idx = 0; train_idx < CRITIC_TRAIN_BUF_SIZE; train_idx++)
+    {
+        critic_in_buf_offset  = train_idx * ddpg->batchSize * ddpg->critic_input_size;
+
+        for (int i = 0; i < ddpg->batchSize; i++)
+        {
+            ddpg_data_copy(&MATRIX(ddpg->criticInput, i, 0), &ddpg->critic_input[critic_in_buf_offset + i*ddpg->critic_input_size], ddpg->critic_input_size);
+        }
+
+        criticOutput = mlp_feedforward(ddpg->critic, ddpg->criticInput);
+
+        for (int i = 0; i < ddpg->batchSize; i++)
+        {
+            for (int j = 0; j < ddpg->critic_output_size; j++)
+            {
+                float q_approximate = ddpg->critic_target_output[train_idx + i*ddpg->critic_output_size + j];
+
+                MATRIX(ddpg->criticErrors, i, j) = MATRIX(criticOutput, i, j) - q_approximate;
+            }
+        }
+
+        mlp_backpropagate(ddpg->critic, ddpg->criticErrors, LOSS_NONE);
+
+        adam_optimize(ddpg->critic, ddpg->criticAdam);
+    }
+#else
+
     /* Backpropagate critic errors. */
     mlp_backpropagate(ddpg->critic, ddpg->criticErrors, LOSS_NONE);
 
     /* Optimize the critic. */
     adam_optimize(ddpg->critic, ddpg->criticAdam);
+#endif
 }
 
 void ddpg_update_target_networks(DDPG *ddpg)

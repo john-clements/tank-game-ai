@@ -7,6 +7,9 @@
 #include "../mlpc/loss.h"
 #include "../mlpc/random.h"
 
+#define CRITIC_TRAIN_BUF_EN
+#define CRITIC_TRAIN_BUF_SIZE   20
+
 /**
  * This structure contains all the parameters of a DDPG instance, its current
  * internal state and the experience memory. All the memory allocations are
@@ -141,6 +144,16 @@ typedef struct DDPG
     int lastStateValid;
 
     int rewardSize;
+
+#ifdef CRITIC_TRAIN_BUF_EN
+    float* critic_input;
+    float* critic_target_output;
+
+    int critic_input_size;
+    int critic_output_size;
+
+    int critic_buf_index;
+#endif
 } DDPG;
 
 /**
